@@ -4,7 +4,9 @@
         "string": "cpp",
         "string_view": "cpp",
         "vector": "cpp",
-        "iostream": "cpp"
-    },
-    "C_Cpp.intelliSenseEngine": "Tag Parser"
+        "iostream": "cpp",
+        "array": "cpp",
+        "*.tcc": "cpp",
+        "fstream": "cpp"
+    }
 }
