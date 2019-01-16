@@ -1,6 +1,7 @@
 #include <opencv2/opencv.hpp>
 #include <math.h>
 #include <unistd.h>
+#include <string>
 extern "C" {
 	#include <libavcodec/avcodec.h>
 	#include <libavutil/common.h>
@@ -47,18 +48,28 @@ public:
 		c->max_b_frames = 1;
 
 		avcodec_open2(c, codec, nullptr);
-		cout << "created codec" << endl;
 
 		frame->format = c->pix_fmt;
 	 	frame->width  = c->width;
 		frame->height = c->height;
 
-		system("mkfifo /home/pi/video_stream");
-		videoFifo = fopen("/home/pi/video_stream", "a");
 
-		system("vlc /home/pi/video_stream --sout #rtp{dst=239.0.0.1,port=8000,sdp=rtsp://:9000/test.sdp} &");
+		system("mkfifo ~/video_stream.h264");
+
+		#ifdef __APPLE__
+		std::string vlcCommand = "/Applications/VLC.app/Contents/MacOS/VLC";
+		#else
+		std::string vlcCommand = "vlc";
+		#endif
+
+		//system((vlcCommand + 
+		//" ~/video_stream.h264 --intf dummy --sout \"#rtp{dst=127.0.0.1,port=5004,sdp=http://:5006/}\" -demux h264 &").c_str());
+
+		std::string home = getenv("HOME");
+		videoFifo = fopen((home + "/video_stream.h264").c_str(), "a");
 	}
 	void encode_frame(cv::Mat image) {
+		cout << "encoding frame" << endl;
 		int got_output;
 
 		av_init_packet(&pkt);
@@ -92,7 +103,7 @@ public:
 			}
 			if (got_output) {
 				fwrite(pkt.data, pkt.size, 1, videoFifo);
-				cout << "wrote packet of size " << pkt.size << endl;
+				//cout << "wrote packet of size " << pkt.size << endl;
 				av_free_packet(&pkt);
 			}
 		}
@@ -104,7 +115,7 @@ int main(int argc, char** argv) {
 
 	bool success = false;
 		 while (!success) {
-			success = camera.open("/dev/video0");
+			success = camera.open(0);
 			 cout << "camera opening " << (success? "succeeded" : "failed") << endl;
 			if (!success) usleep(200000); // 200 ms
 		}
@@ -116,6 +127,7 @@ int main(int argc, char** argv) {
 	}
 	cout << "Got first frame" << endl;
 	Encoder encoder(image.rows, image.cols);
+	cout << "Initialized video streamer" << endl;
 
 	while (true) {
 		encoder.encode_frame(image);
