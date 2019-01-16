@@ -7,7 +7,7 @@ extern "C" {
 	#include <libavutil/imgutils.h>
 }
 
-using cout, endl;
+using std::cout; using std::endl;
 
 /*
 For streaming:
@@ -32,6 +32,8 @@ public:
 	AVFrame *frame = av_frame_alloc();
 	AVPacket pkt;
 
+	FILE* videoFifo;
+
 	Encoder(int width, int height) {
 		c = avcodec_alloc_context3(codec);
 		c->bit_rate = 3000000; // 3 megabits 
@@ -51,7 +53,10 @@ public:
 	 	frame->width  = c->width;
 		frame->height = c->height;
 
+		system("mkfifo /home/pi/video_stream");
+		videoFifo = fopen("/home/pi/video_stream", "a");
 
+		system("vlc /home/pi/video_stream --sout #rtp{dst=239.0.0.1,port=8000,sdp=rtsp://:9000/test.sdp} &");
 	}
 	void encode_frame(cv::Mat image) {
 		int got_output;
@@ -86,7 +91,8 @@ public:
 				exit(1);
 			}
 			if (got_output) {
-				// do something with pkt.data
+				fwrite(pkt.data, pkt.size, 1, videoFifo);
+				cout << "wrote packet of size " << pkt.size << endl;
 				av_free_packet(&pkt);
 			}
 		}
