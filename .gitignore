@@ -158,9 +158,15 @@ gradle-app.setting
 .settings/
 bin/
 
+#xcode specific
+*.xcuserstate
+project.xcworkspace/
+xcuserdata/
 
 # End of https://www.gitignore.io/api/c++,java,linux,macos,gradle,windows,visualstudiocode
 
-
 include/
 pi_include/
+
+# executable
+5708-vision

@@ -21,14 +21,16 @@ public:
 
 		#ifdef __linux__
 		std::string codec = "h264_omx";
-		#else
-		std::string codec = "h264_videotoolbox -realtime";
+		std::string ffmpegCommand = "ffmpeg";
+		#elif defined __APPLE__
+		std::string codec = "h264_videotoolbox";
+		std::string ffmpegCommand = "/usr/local/bin/ffmpeg";
 		#endif
 
 		std::string recieveAddress = "10.126.58.248";
 
 		std::stringstream command;
-		command << "ffmpeg -re -f rawvideo -pixel_format bgr24 -video_size "
+		command << ffmpegCommand << " -re -f rawvideo -pixel_format bgr24 -video_size "
 		<< width << "x" << height 
 		<< " -r 60 -i " << streamPath << " -c:v " << codec 
 		<< " -b:v 3000k -sdp_file " << filesDir << "/stream.sdp"
