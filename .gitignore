@@ -80,6 +80,8 @@ hs_err_pid*
 .AppleDouble
 .LSOverride
 
+*.dSYM/*
+
 # Icon must end with two \r
 Icon
 
