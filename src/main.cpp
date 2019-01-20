@@ -91,7 +91,7 @@ namespace vision5708Main {
 				if (newfd < 0) perror("Rio not connected");
 				else fd = newfd;
 			}
-			cout << sendStr;
+			//cout << sendStr;
 		}
 	};
 	
@@ -134,8 +134,8 @@ namespace vision5708Main {
 			if (!success) usleep(200000); // 200 ms
 		}
 		
-		camera.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+		camera.set(cv::CAP_PROP_FRAME_WIDTH, 853);
+		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
 		
 		while (!camera.read(currentFrame)) {
 			usleep(5000);
@@ -145,12 +145,16 @@ namespace vision5708Main {
 		Streamer streamer(currentFrame.cols, currentFrame.rows);
 		cout << "Initialized video streamer" << endl;
 		
-		std::thread thread(&VisionThread);
+		//std::thread thread(&VisionThread);
+		
 		
 		while (true) {
+			auto frameReadStart = clock.now();
 			while (!camera.read(currentFrame)) {
 				usleep(5000);
 			}
+			cout << "reading frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+			(clock.now() - frameReadStart).count() << " ms" << endl;
 			/*
 			 frameCount++;
 			 cout << "encoding frame. Instant FPS: " <<
