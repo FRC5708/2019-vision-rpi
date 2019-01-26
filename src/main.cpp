@@ -176,13 +176,12 @@ namespace vision5708Main {
 
 		cv::Mat image=cv::imread(path, CV_LOAD_IMAGE_COLOR);
 		std::vector<VisionTarget> te = doVision(image);
-		std::ofstream output;
-		output.open("./img_test_output.txt");
-		output << "Testing Path: " << path << std::endl;
+		cout << "Testing Path: " << path << std::endl;
 		for(auto &i:te){
 			auto calc=i.calcs;
-			output << "Portland: " << calc.isPort << " Distance: " << calc.distance << " tape: " << calc.tapeAngle << " robot: " << calc.robotAngle << std::endl;
-			output << "L: " << i.left.x << ":" << i.left.y << " R: " << i.right.x << ":" << i.right.y << std::endl;
+			cout << "Portland: " << calc.isPort << " Distance: " << calc.distance << " tape: " << calc.tapeAngle << " robot: " << calc.robotAngle << std::endl;
+			cout << "L: " << i.left.x << ":" << i.left.y << " " << i.left.width << "," << i.left.height
+			 << " R: " << i.right.x << ":" << i.right.y << " " << i.right.width << "," << i.right.height << std::endl;
 		}
 		return 0;
 	}
