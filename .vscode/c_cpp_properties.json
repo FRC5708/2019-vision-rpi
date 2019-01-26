@@ -19,7 +19,7 @@
             "name": "Raspberry Pi",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/../pi_include/**"
+                "${workspaceFolder}/pi_include/usr/include/"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",

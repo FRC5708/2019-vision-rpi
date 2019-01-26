@@ -64,7 +64,9 @@ Streamer::Streamer(int width, int height) {
 	// ffplay -protocol_whitelist "file,rtp,udp" -fflags nobuffer -flags low_delay -framedrop -strict -experimental -analyzeduration 1 -sync ext -i path_to_sdp_file
 	// It needs to be started BEFORE this program for stupid reasons
 	
-	std::thread streamerThread(*this);
+	std::thread streamerThread([this]() {
+		run();
+	});
 }
 void Streamer::_writeFrame() {
 	std::chrono::steady_clock clock;
@@ -99,7 +101,7 @@ void Streamer::writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw) {
 	condition.notify_all();
 }
 
-void Streamer::operator()() {
+void Streamer::run() {
 	while (true) {
 		std::unique_lock<std::mutex> uniqueLock(waitLock);
 		condition.wait(uniqueLock);

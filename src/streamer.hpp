@@ -21,5 +21,5 @@ public:
 	
 	void writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw);
 	
-	void operator()(); // run thread
+	void run(); // run thread
 };
