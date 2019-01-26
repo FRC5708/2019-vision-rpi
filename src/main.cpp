@@ -1,5 +1,6 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/highgui.hpp>
 
 #include <iostream>
 #include <unistd.h>
@@ -18,11 +19,12 @@
 #include <signal.h>
 
 #include "vision.hpp"
-#include "streamer.hpp"
+//#include "streamer.hpp"
 
+#include <fstream>
 
 using std::cout; using std::endl; using std::string;
-
+char* path;
 namespace vision5708Main {
 
 	FILE* videoFifo;
@@ -116,6 +118,7 @@ namespace vision5708Main {
 	}
 	
 	int main(int argc, char** argv) {
+		/*
 		signal(SIGPIPE, SIG_IGN);
 		
 		cv::VideoCapture camera;
@@ -163,15 +166,33 @@ namespace vision5708Main {
 			 frameCount * (1.0/std::chrono::duration<double>(clock.now() - beginning).count()) << endl;
 			 
 			 lastFrame = clock.now();
-			 */
+			 *//*
 			currentFrameTime = clock.now();
 			waitMutex.unlock();
 			condition.notify_one();
 			
 			streamer.writeFrame(currentFrame, lastResults);
+			}*/
+
+		cv::Mat image=cv::imread(path, CV_LOAD_IMAGE_COLOR);
+		std::vector<VisionTarget> te = doVision(image);
+		std::ofstream output;
+		output.open("./img_test_output.txt");
+		output << "Testing Path: " << path << std::endl;
+		for(auto &i:te){
+			auto calc=i.calcs;
+			output << "Portland: " << calc.isPort << " Distance: " << calc.distance << " tape: " << calc.tapeAngle << " robot: " << calc.robotAngle << std::endl;
+			output << "L: " << i.left.x << ":" << i.left.y << " R: " << i.right.x << ":" << i.right.y << std::endl;
 		}
+		return 0;
 	}
+
 }
+
 int main(int argc, char** argv) {
+	if(argc!=2){
+		return -1;
+	}
+	path=argv[1];
 	return vision5708Main::main(argc, argv);
 }
