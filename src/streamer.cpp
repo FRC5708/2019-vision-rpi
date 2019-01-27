@@ -29,13 +29,11 @@ Streamer::Streamer(int width, int height) {
 #endif
 	
 	string recieveAddress = "10.57.8.83";
-	int target-bitrate = 3000000;
-	int width=840;
-	int height=480;
+	int target_bitrate = 3000000;
 	int port=1234;
 	
 	std::stringstream command;
-	command << gstreamCommand << codec << " target-bitrate=" << target-bitrate << 
+	command << gstreamCommand << codec << " target-bitrate=" << target_bitrate << 
 	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
 	<< " host=" << recieveAddress << " port=" << port;
 
