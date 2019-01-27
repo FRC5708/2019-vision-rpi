@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
+#include <arpa/inet.h>
 
 #include <signal.h>
 
@@ -39,30 +40,25 @@ namespace vision5708Main {
 	class RioComm {
 		int fd;
 		sockaddr_in clientAddr;
-		
+		char* client_ip;
+		RioComm(char* ip){
+			client_ip=ip;
+		}
 	public:
 		RioComm() {
-			
-			if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+			if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 				perror("socket failed");
 			}
-			
-			int opt = 1;
+			int opt=1;
 			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
 				perror("setsockopt failed");
 			}
-			
-			sockaddr_in servAddr;
-			servAddr.sin_family = AF_INET;
-			servAddr.sin_addr.s_addr = INADDR_ANY;
-			servAddr.sin_port = htons(8081);
-			
-			if (bind(fd, (sockaddr*) &servAddr, sizeof(servAddr)) < 0) {
-				perror("bind failed");
+			clientAddr.sin_family=AF_INET;
+			int ret = inet_aton(client_ip, &clientAddr.sin_addr);
+  			if (ret == 0) { 
+				  perror("inet_aton");
 			}
-			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
-			
-			if (listen(fd, 5) < 0) perror("listen failed");
+			clientAddr.sin_port=htons(8081);
 			
 		}
 		
@@ -83,20 +79,14 @@ namespace vision5708Main {
 			
 			string sendStr = toSend.str();
 			
-			if (write(fd, sendStr.c_str(), sendStr.length()) == -1) {
-				// poll the connection
-				unsigned int clientAddrLen = sizeof(clientAddr);
-				int newfd = accept(fd, (sockaddr*) &clientAddr, &clientAddrLen);
-				
-				if (newfd < 0) perror("Rio not connected");
-				else fd = newfd;
-			}
+			sendto(fd, &sendStr, sendStr.length, 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
 			cout << sendStr;
 		}
 	};
 	
 	void VisionThread() {
-		RioComm rioComm;
+		string addr="127.0.0.1";
+		RioComm rioComm=RioComm(addr.c_str);
 		
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
