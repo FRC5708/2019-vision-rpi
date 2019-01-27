@@ -14,15 +14,13 @@ using std::cout; using std::endl; using std::string;
 
 Streamer::Streamer(int width, int height) {
 	
-	system("ffmpeg -f v4l2 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 &");
-	
 	
 #ifdef __linux__
 	string codec = "omxh264enc";
-	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video1 ! videoscale ! videoconvert ! queue ! ";
+	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2 ! videoscale ! videoconvert ! queue ! ";
 #elif defined __APPLE__
 	string codec = "omxh264enc"; //TODO: ADDME
-	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video1 ! videoscale ! videoconvert ! queue ! ";
+	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2 ! videoscale ! videoconvert ! queue ! ";
 #endif
 	
 	string recieveAddress = "10.126.58.95";
@@ -32,7 +30,7 @@ Streamer::Streamer(int width, int height) {
 	std::stringstream command;
 	command << gstreamCommand << codec << " target-bitrate=" << target_bitrate << 
 	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
-	<< " host=" << recieveAddress << " port=" << port << "&";
+	<< " host=" << recieveAddress << " port=" << port << " &";
 
 	cout << command.str() << endl;
 	system(command.str().c_str());
