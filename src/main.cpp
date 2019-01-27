@@ -40,12 +40,8 @@ namespace vision5708Main {
 	class RioComm {
 		int fd;
 		sockaddr_in clientAddr;
-		char* client_ip;
-		RioComm(char* ip){
-			client_ip=ip;
-		}
 	public:
-		RioComm() {
+		RioComm(char* client_ip) {
 			if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 				perror("socket failed");
 			}
