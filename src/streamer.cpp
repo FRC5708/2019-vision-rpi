@@ -14,7 +14,7 @@ using std::cout; using std::endl; using std::string;
 
 Streamer::Streamer(int width, int height) {
 	
-	system("ffmpeg -f v4l2 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2");
+	system("ffmpeg -f v4l2 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 &");
 	
 	
 #ifdef __linux__
@@ -32,7 +32,7 @@ Streamer::Streamer(int width, int height) {
 	std::stringstream command;
 	command << gstreamCommand << codec << " target-bitrate=" << target_bitrate << 
 	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
-	<< " host=" << recieveAddress << " port=" << port;
+	<< " host=" << recieveAddress << " port=" << port << "&";
 
 	cout << command.str() << endl;
 	system(command.str().c_str());
@@ -40,7 +40,6 @@ Streamer::Streamer(int width, int height) {
 	
 	
 	
-	videoFifo = fopen(streamPath.c_str(), "a");
 #ifdef __linux__
 	if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, width*height*3) < 0) {
 		if (errno == EPERM) {
