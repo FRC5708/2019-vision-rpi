@@ -38,23 +38,7 @@ Streamer::Streamer(int width, int height) {
 	
 	
 	
-#ifdef __linux__
-	if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, width*height*3) < 0) {
-		if (errno == EPERM) {
-			FILE* maxSizeFile = fopen("/proc/sys/fs/pipe-max-size", "r");
-			
-			char buf[100];
-			fread(buf, sizeof(buf), 1, maxSizeFile);
-			int maxSize = atoi(buf);
-			
-			cout << "setting pipe size to " << maxSize << endl;
-			if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, maxSize) < 0) {
-				perror("could not set pipe size to maximum value");
-			}
-		}
-		else perror("could not set pipe size");
-	}
-#endif
+
 	// play stream with:
 	// ffplay -protocol_whitelist "file,rtp,udp" -fflags nobuffer -flags low_delay -framedrop -strict -experimental -analyzeduration 1 -sync ext -i path_to_sdp_file
 	// It needs to be started BEFORE this program for stupid reasons
