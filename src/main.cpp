@@ -91,7 +91,7 @@ namespace vision5708Main {
 				if (newfd < 0) perror("Rio not connected");
 				else fd = newfd;
 			}
-			//cout << sendStr;
+			cout << sendStr;
 		}
 	};
 	
@@ -145,7 +145,7 @@ namespace vision5708Main {
 		Streamer streamer(currentFrame.cols, currentFrame.rows);
 		cout << "Initialized video streamer" << endl;
 		
-		//std::thread thread(&VisionThread);
+		std::thread thread(&VisionThread);
 		
 		
 		while (true) {
