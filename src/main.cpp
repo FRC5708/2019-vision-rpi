@@ -75,14 +75,14 @@ namespace vision5708Main {
 			
 			string sendStr = toSend.str();
 			
-			sendto(fd, &sendStr, sendStr.length, 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
+			sendto(fd, &sendStr, sendStr.length(), 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
 			cout << sendStr;
 		}
 	};
 	
 	void VisionThread() {
-		string addr="127.0.0.1";
-		RioComm rioComm=RioComm(addr.c_str);
+		char addr[]="127.0.0.1";
+		RioComm rioComm=RioComm(addr);
 		
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
