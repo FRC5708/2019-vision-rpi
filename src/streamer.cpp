@@ -36,16 +36,31 @@ Streamer::Streamer(int width, int height) {
 	system(command.str().c_str());
 	//system("gst-launch-1.0 autovideosrc ! videoscale ! videoconvert ! queue ! omxh264enc target-bitrate=3000000 control-rate=variable  ! video/x-h264,width=840,height=480,framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink host=10.126.58.95 port=1234");
 	
-	
-	
-
+	/*
+#ifdef __linux__
+	if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, width*height*3) < 0) {
+		if (errno == EPERM) {
+			FILE* maxSizeFile = fopen("/proc/sys/fs/pipe-max-size", "r");
+			
+			char buf[100];
+			fread(buf, sizeof(buf), 1, maxSizeFile);
+			int maxSize = atoi(buf);
+			
+			cout << "setting pipe size to " << maxSize << endl;
+			if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, maxSize) < 0) {
+				perror("could not set pipe size to maximum value");
+			}
+		}
+		else perror("could not set pipe size");
+	}
+#endif*/
 	// play stream with:
 	// ffplay -protocol_whitelist "file,rtp,udp" -fflags nobuffer -flags low_delay -framedrop -strict -experimental -analyzeduration 1 -sync ext -i path_to_sdp_file
 	// It needs to be started BEFORE this program for stupid reasons
-	
+	/*
 	std::thread streamerThread([this]() {
 		run();
-	});
+	});*/
 }
 void Streamer::_writeFrame() {
 	std::chrono::steady_clock clock;
