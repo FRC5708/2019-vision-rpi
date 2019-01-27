@@ -37,8 +37,9 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	VisionData result;
 	
 	// all the constants
-	const double inchTapesHeight = 5.5; // from bottom to top of tapes
-	const double inchTapesApart = 8 + 5.5*sin(14.5/180*M_PI); // from outermost edge
+	const double radTapeOrientation = 14.5/180*M_PI;
+	const double inchTapesHeight = 5.5 + 2*sin(radTapeOrientation); // from bottom to top of tapes
+	const double inchTapesApart = 8 + 5.5*sin(radTapeOrientation) + 2*cos(radTapeOrientation); // from outermost edge
 	const double inchHatchTapesAboveGround = 2*12+7.5 - inchTapesHeight;
 	const double inchPortTapesAboveGround = 3*12+3.125 - inchTapesHeight;
 	
@@ -56,7 +57,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	// see: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 	// right now, it assumes perfect pinhole camera
 	
-	const double radFOV = (30.0/180.0)*M_PI; // changed to 30 for testing
+	const double radFOV = (60.0/180.0)*M_PI;
 	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * (pixImageWidth / 2); // pixels. Estimated from the camera's FOV spec.
 	
 	struct { AngularCoord tl, tr, bl, br; } radTapeQuad = {
@@ -89,6 +90,9 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	 - inchTapesApart/2/inchRightDistance * 
 	 (pow(inchLeftDistance, 2) + pow(inchRightDistance, 2) - pow(inchTapesApart, 2)));*/
 
+	double radWidthShouldBe = acos((pow(inchLeftDistance,2) + pow(inchRightDistance,2) - pow(inchTapesApart,2))
+	/ (2*inchRightDistance*inchLeftDistance));
+
 	// in the ideal model, these are equal.
 	double inchCalcTapesAboveGroundLeft  = inchLeftDistance  * tan(radCameraPitch + radTapeQuad.bl.y) + inchCameraHeight;
 	double inchCalcTapesAboveGroundRight = inchRightDistance * tan(radCameraPitch + radTapeQuad.br.y) + inchCameraHeight;
@@ -96,7 +100,9 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	double inchCalcTapesAboveGround = (inchCalcTapesAboveGroundLeft + inchCalcTapesAboveGroundRight) / 2;
 
 	std::cout << "distance: left: " << inchLeftDistance << " right: " << inchRightDistance << 
-		" center: " << inchCenterDistance << " height: " << inchCalcTapesAboveGround << " radWidth: " << radWidth << std::endl;
+		" center: " << inchCenterDistance << " height: " << inchCalcTapesAboveGround 
+		<< "\nradWidth: " << radWidth << " should be: " << radWidthShouldBe << 
+		 " radHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << std::endl;
 
 	if (inchCenterDistance > inchMinDistance &&
 		abs(inchCalcTapesAboveGroundLeft - inchCalcTapesAboveGroundRight) < inchTapeHeightTolerance) {
@@ -156,12 +162,14 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 			    abs(1 - left.width / right.width) < rectSizeDifferenceTolerance &&
 				abs(1 - left.height / right.height) < rectSizeDifferenceTolerance) {
 
-				ProcessRectsResult result = processRects(left, right, image.rows, image.cols);
+				ProcessRectsResult result = processRects(left, right, image.cols, image.rows);
 				
-				if (isNanOrInf(result.calcs.distance) || isNanOrInf(result.calcs.robotAngle) || isNanOrInf(result.calcs.distance)) {
-					std::cout << "encountered NaN or Infinity" << std::endl;
+				if (result.success) {
+					if (isNanOrInf(result.calcs.distance) || isNanOrInf(result.calcs.robotAngle) || isNanOrInf(result.calcs.tapeAngle)) {
+						std::cout << "encountered NaN or Infinity" << std::endl;
+					}
+				else results.push_back({ result.calcs, left, right });
 				}
-				else if (result.success) results.push_back({ result.calcs, left, right });
 			}
 		}
 	}

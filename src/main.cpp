@@ -175,6 +175,7 @@ namespace vision5708Main {
 			}*/
 
 		cv::Mat image=cv::imread(path, CV_LOAD_IMAGE_COLOR);
+		cout << "image size: " << image.cols << 'x' << image.rows << endl;
 		std::vector<VisionTarget> te = doVision(image);
 		cout << "Testing Path: " << path << std::endl;
 		for(auto &i:te){
