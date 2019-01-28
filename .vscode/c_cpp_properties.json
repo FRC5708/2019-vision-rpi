@@ -19,9 +19,21 @@
             "name": "Raspberry Pi",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/pi_include/usr/include/"
+                "${workspaceFolder}/pi_include/usr/include/**",
+                "${workspaceFolder}/pi_include/usr/include/arm-linux-gnueabihf/**"
             ],
-            "compilerPath": "/usr/bin/clang",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        },
+        {
+            "name": "WSL",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include/"
+            ],
+            "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64"
