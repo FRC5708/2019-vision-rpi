@@ -14,35 +14,29 @@ using std::cout; using std::endl; using std::string;
 
 Streamer::Streamer(int width, int height) {
 	
-	string filesDir = string(getenv("HOME")) + "/vision_files";
-	string streamPath = filesDir + "/video_stream";
-	
-	system(("mkfifo " + streamPath).c_str());
-	
 	
 #ifdef __linux__
-	string codec = "h264_omx";
-	string ffmpegCommand = "ffmpeg";
+	string codec = "omxh264enc";
+	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2 ! videoscale ! videoconvert ! queue ! ";
 #elif defined __APPLE__
-	string codec = "h264_videotoolbox";
-	string ffmpegCommand = "/usr/local/bin/ffmpeg";
+	string codec = "omxh264enc"; //TODO: ADDME
+	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2 ! videoscale ! videoconvert ! queue ! ";
 #endif
 	
-	string recieveAddress = "10.57.8.83";
+	string recieveAddress = "10.126.58.95";
+	int target_bitrate = 3000000;
+	int port=1234;
 	
 	std::stringstream command;
-	command << ffmpegCommand << " -re -f rawvideo -pixel_format bgr24 -video_size "
-	<< width << "x" << height
-	<< " -r 60 -i " << streamPath << " -c:v " << codec
-	<< " -b:v 3000k -sdp_file " << filesDir << "/stream.sdp"
-	<< " -f rtp rtp://" << recieveAddress << ":5004 &";
-	
+	command << gstreamCommand << codec << " target-bitrate=" << target_bitrate << 
+	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
+	<< " host=" << recieveAddress << " port=" << port << " &";
+
 	cout << command.str() << endl;
 	system(command.str().c_str());
-	//system("ffmpeg -re -f rawvideo -pixel_format bgr24 -video_size 1280x720 -i ~/video_stream.bgr24 -c:v h264_videotoolbox -b:v 3000k -sdp_file ~/test.sdp -f rtp rtp://localhost:5004/  &");
+	//system("gst-launch-1.0 autovideosrc ! videoscale ! videoconvert ! queue ! omxh264enc target-bitrate=3000000 control-rate=variable  ! video/x-h264,width=840,height=480,framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink host=10.126.58.95 port=1234");
 	
-	
-	videoFifo = fopen(streamPath.c_str(), "a");
+	/*
 #ifdef __linux__
 	if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, width*height*3) < 0) {
 		if (errno == EPERM) {
@@ -59,14 +53,14 @@ Streamer::Streamer(int width, int height) {
 		}
 		else perror("could not set pipe size");
 	}
-#endif
+#endif*/
 	// play stream with:
 	// ffplay -protocol_whitelist "file,rtp,udp" -fflags nobuffer -flags low_delay -framedrop -strict -experimental -analyzeduration 1 -sync ext -i path_to_sdp_file
 	// It needs to be started BEFORE this program for stupid reasons
-	
+	/*
 	std::thread streamerThread([this]() {
 		run();
-	});
+	});*/
 }
 void Streamer::_writeFrame() {
 	std::chrono::steady_clock clock;

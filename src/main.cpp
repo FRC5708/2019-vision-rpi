@@ -91,7 +91,7 @@ namespace vision5708Main {
 				if (newfd < 0) perror("Rio not connected");
 				else fd = newfd;
 			}
-			//cout << sendStr;
+			cout << sendStr;
 		}
 	};
 	
@@ -117,11 +117,12 @@ namespace vision5708Main {
 	
 	int main(int argc, char** argv) {
 		signal(SIGPIPE, SIG_IGN);
+		system("ffmpeg -f v4l2 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 > /dev/null 2>&1 &");
 		
 		cv::VideoCapture camera;
 		
 		bool success = false;
-		for (int cameraId = 0; !success; ++cameraId) {
+		for (int cameraId = 1; !success; ++cameraId) {
 			
 			if (cameraId > 5) cameraId = 0;
 			
@@ -130,7 +131,7 @@ namespace vision5708Main {
 			#else
 			success = camera.open(cameraId);
 			#endif
-			cout << "camera opening " << (success? "succeeded" : "failed") << endl;
+			cout << "camera opening " << (success? ("succeeded @/dev/video" + cameraId) : "failed") << endl;
 			if (!success) usleep(200000); // 200 ms
 		}
 		
@@ -145,7 +146,7 @@ namespace vision5708Main {
 		Streamer streamer(currentFrame.cols, currentFrame.rows);
 		cout << "Initialized video streamer" << endl;
 		
-		//std::thread thread(&VisionThread);
+		std::thread thread(&VisionThread);
 		
 		
 		while (true) {
