@@ -18,7 +18,7 @@
 #include <signal.h>
 
 #include "vision.hpp"
-#include "streamer.hpp"
+#include "VideoHandler.hpp"
 
 
 using std::cout; using std::endl; using std::string;
@@ -117,45 +117,14 @@ namespace vision5708Main {
 	
 	int main(int argc, char** argv) {
 		signal(SIGPIPE, SIG_IGN);
-		system("ffmpeg -f v4l2 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 > /dev/null 2>&1 &");
-		
-		cv::VideoCapture camera;
-		
-		bool success = false;
-		for (int cameraId = 1; !success; ++cameraId) {
-			
-			if (cameraId > 5) cameraId = 0;
-			
-			#ifdef __linux__
-			success = camera.open("/dev/video" + std::to_string(cameraId));
-			#else
-			success = camera.open(cameraId);
-			#endif
-			cout << "camera opening " << (success? ("succeeded @/dev/video" + cameraId) : "failed") << endl;
-			if (!success) usleep(200000); // 200 ms
-		}
-		
-		camera.set(cv::CAP_PROP_FRAME_WIDTH, 853);
-		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-		
-		while (!camera.read(currentFrame)) {
-			usleep(5000);
-		}
-		cout << "Got first frame. width=" << currentFrame.cols << ", height=" << currentFrame.rows << endl;
-		
-		Streamer streamer(currentFrame.cols, currentFrame.rows);
-		cout << "Initialized video streamer" << endl;
+
+		VideoHandler videoHandler(1280, 720);
 		
 		std::thread thread(&VisionThread);
 		
 		
 		while (true) {
-			auto frameReadStart = clock.now();
-			while (!camera.read(currentFrame)) {
-				usleep(5000);
-			}
-			cout << "reading frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
-			(clock.now() - frameReadStart).count() << " ms" << endl;
+			currentFrame = videoHandler.readFrame();
 			/*
 			 frameCount++;
 			 cout << "encoding frame. Instant FPS: " <<
@@ -169,7 +138,7 @@ namespace vision5708Main {
 			waitMutex.unlock();
 			condition.notify_one();
 			
-			streamer.writeFrame(currentFrame, lastResults);
+			videoHandler.writeFrame(videoHandler.drawFrame(currentFrame, lastResults));
 		}
 	}
 }
