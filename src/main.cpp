@@ -74,8 +74,11 @@ namespace vision5708Main {
 			}
 			
 			string sendStr = toSend.str();
-			
-			sendto(fd, &sendStr, sendStr.length(), 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
+				
+			if (sendto(fd, sendStr.c_str(), sendStr.length(), 0, 
+			(sockaddr*)&clientAddr, sizeof(clientAddr)) < 0) {
+				perror("Failed to send data");
+			}
 			cout << sendStr;
 		}
 	};
