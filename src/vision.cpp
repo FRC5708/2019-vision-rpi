@@ -9,22 +9,16 @@ bool isNanOrInf(double in) {
 struct AngularCoord {
 	double x; double y;
 };
-// this can probably be simplfied
 AngularCoord toAngularCoord(double pixX, double pixY, double pixFocalLength, int pixImageWidth, int pixImageHeight) {
 	double centeredX = pixX - pixImageWidth / 2;
 	double centeredY = pixImageHeight / 2 - pixY;
 	
-	// get coords, with pole on center of image
-	double lng = atan2(centeredY, centeredX);
-	double lat = atan2(sqrt(centeredX*centeredX + centeredY*centeredY), pixFocalLength);
-	std::cout << "pixel: " << pixX << "," << pixY
-	<< " lat: " << lat/M_PI*180 << ", lng: " << lng/M_PI*180 << std::endl;
+	double rayLength = sqrt(centeredX*centeredX + centeredY*centeredY + pixFocalLength*pixFocalLength);
+	double radX = atan2(centeredX, pixFocalLength);
+	double radY = asin(centeredY / rayLength);
 	
-	// then convert so poles are on left and right: https://en.wikipedia.org/wiki/Spherical_coordinate_system
-	
-	double radX = atan2(sin(lat) * cos(lng), cos(lat));
-	double radY = M_PI_2 - acos(sin(lat)*sin(lng));
-	std::cout << "angular coord: " << radX << ", " << radY << std::endl;
+	 std::cout << "pixel: " << pixX << "," << pixY
+	 << " angular coord: " << radX << ", " << radY << std::endl;
 	return { radX, radY };
 }
 
@@ -81,14 +75,14 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	// Uses law of sines to get the angle, A, between leftDistance and tapeWidth
 	// then uses law of cosines to get the remaining side of the leftDistance-A-(tapeWidth/2) triangle
 	// which is centerDistance
-	double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2) -
+	/*double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2) -
 							   inchLeftDistance*inchTapesApart*
 							   sqrt(1 - pow(sin(radWidth) / inchTapesApart * inchRightDistance, 2))); // cos(A)
-	
+	*/
 	// alternate version, for testing, that doesn't take into account the observed tape width
-	/*double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2)
+	double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2)
 	 - inchTapesApart/2/inchRightDistance * 
-	 (pow(inchLeftDistance, 2) + pow(inchRightDistance, 2) - pow(inchTapesApart, 2)));*/
+	 (pow(inchLeftDistance, 2) + pow(inchRightDistance, 2) - pow(inchTapesApart, 2)));
 
 	double radWidthShouldBe = acos((pow(inchLeftDistance,2) + pow(inchRightDistance,2) - pow(inchTapesApart,2))
 	/ (2*inchRightDistance*inchLeftDistance));
