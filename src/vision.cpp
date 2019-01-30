@@ -1,5 +1,6 @@
 #include "vision.hpp"
 #include "grip.hpp"
+#include <opencv2/calib3d.hpp>
 
 
 bool isNanOrInf(double in) {
@@ -28,6 +29,29 @@ AngularCoord toAngularCoord(double pixX, double pixY, double pixFocalLength, int
 	return { radX, radY };
 }
 
+// from http://answers.opencv.org/question/16796/computing-attituderoll-pitch-yaw-from-solvepnp/?answer=52913#post-id-52913
+cv::Vec3d getEulerAngles(cv::Mat &rotation) {
+	cv::Mat rotCamerMatrix;
+	cv::Rodrigues(rotation, rotCamerMatrix);
+
+    cv::Mat cameraMatrix,rotMatrix,transVect,rotMatrixX,rotMatrixY,rotMatrixZ;
+	cv::Vec3d eulerAngles;
+    double* _r = rotCamerMatrix.ptr<double>();
+    double projMatrix[12] = {_r[0],_r[1],_r[2],0,
+                          _r[3],_r[4],_r[5],0,
+                          _r[6],_r[7],_r[8],0};
+
+    decomposeProjectionMatrix(cv::Mat(3,4,CV_64FC1,projMatrix),
+                               cameraMatrix,
+                               rotMatrix,
+                               transVect,
+                               rotMatrixX,
+                               rotMatrixY,
+                               rotMatrixZ,
+                               eulerAngles);
+	return eulerAngles;
+}
+
 struct ProcessRectsResult {
 	bool success;
 	VisionData calcs;
@@ -39,7 +63,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	// all the constants
 	const double radTapeOrientation = 14.5/180*M_PI;
 	const double inchTapesHeight = 5.5 + 2*sin(radTapeOrientation); // from bottom to top of tapes
-	const double inchTapesApart = 8 + 5.5*sin(radTapeOrientation) + 2*cos(radTapeOrientation); // from outermost edge
+	const double inchOuterTapesApart = 8 + 5.5*sin(radTapeOrientation) + 2*cos(radTapeOrientation); // from outermost edge
 	const double inchHatchTapesAboveGround = 2*12+7.5 - inchTapesHeight;
 	const double inchPortTapesAboveGround = 3*12+3.125 - inchTapesHeight;
 	
@@ -60,6 +84,39 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	const double radFOV = (60.0/180.0)*M_PI;
 	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * (pixImageWidth / 2); // pixels. Estimated from the camera's FOV spec.
 	
+	
+	double cameraMatrixVals[] {
+		pixFocalLength, 0, pixImageWidth/2,
+		0, pixFocalLength, pixImageHeight/2,
+		0, 0, 1
+	};
+	cv::Mat cameraMatrix(3, 3, CV_64F, cameraMatrixVals);
+
+	cv::Mat rotation, translation;
+
+	// world coords: (0, 0, 0) at bottom center of tapes
+	// up and right are positive. y-axis is vertical.
+	cv::solvePnP(std::vector<cv::Point3f>({ // clockwise from top left corner of tapes
+		cv::Point3f(-inchOuterTapesApart/2, inchTapesHeight, 0),
+		cv::Point3f(inchOuterTapesApart/2, inchTapesHeight, 0),
+		cv::Point3f(inchOuterTapesApart/2, 0, 0),
+		cv::Point3f(-inchOuterTapesApart/2, 0, 0)
+		 }), std::vector<cv::Point2f>({
+			 left.tl(), cv::Point2f(right.br().x, right.tl().y),
+			 right.br(), cv::Point2f(left.tl().x, left.br().y)
+		 }), cameraMatrix, {}, rotation, translation);
+
+	cv::Vec3d angles = getEulerAngles(rotation);
+
+	// x is right postive, y is forwards positive
+	double inchRobotX = translation.at<double>(0);
+	double inchRobotY = -translation.at<double>(2); // should always be negative
+	double inchCalcTapesAboveGround2 = inchCameraHeight + translation.at<double>(1);
+
+	std::cout << "\npitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
+	<< "\ntrans: " << translation << 
+	"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround2 << '\n';
+
 	struct { AngularCoord tl, tr, bl, br; } radTapeQuad = {
 		toAngularCoord(left.tl().x, left.tl().y, pixFocalLength, pixImageWidth, pixImageHeight),
 		toAngularCoord(right.br().x, right.tl().y, pixFocalLength, pixImageWidth, pixImageHeight),
@@ -81,16 +138,16 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	// Uses law of sines to get the angle, A, between leftDistance and tapeWidth
 	// then uses law of cosines to get the remaining side of the leftDistance-A-(tapeWidth/2) triangle
 	// which is centerDistance
-	double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2) -
-							   inchLeftDistance*inchTapesApart*
-							   sqrt(1 - pow(sin(radWidth) / inchTapesApart * inchRightDistance, 2))); // cos(A)
+	double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchOuterTapesApart/2, 2) -
+							   inchLeftDistance*inchOuterTapesApart*
+							   sqrt(1 - pow(sin(radWidth) / inchOuterTapesApart * inchRightDistance, 2))); // cos(A)
 	
 	// alternate version, for testing, that doesn't take into account the observed tape width
-	/*double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2)
-	 - inchTapesApart/2/inchRightDistance * 
-	 (pow(inchLeftDistance, 2) + pow(inchRightDistance, 2) - pow(inchTapesApart, 2)));*/
+	/*double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchOuterTapesApart/2, 2)
+	 - inchOuterTapesApart/2/inchRightDistance * 
+	 (pow(inchLeftDistance, 2) + pow(inchRightDistance, 2) - pow(inchOuterTapesApart, 2)));*/
 
-	double radWidthShouldBe = acos((pow(inchLeftDistance,2) + pow(inchRightDistance,2) - pow(inchTapesApart,2))
+	double radWidthShouldBe = acos((pow(inchLeftDistance,2) + pow(inchRightDistance,2) - pow(inchOuterTapesApart,2))
 	/ (2*inchRightDistance*inchLeftDistance));
 
 	// in the ideal model, these are equal.
@@ -120,12 +177,18 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	result.distance = inchCenterDistance;
 	
 	// sin(A) / centerDistance == sin(90 + tapeAngle) / leftDistance
-	result.tapeAngle = asin(sin(radWidth) / inchTapesApart * inchRightDistance
+	result.tapeAngle = asin(sin(radWidth) / inchOuterTapesApart * inchRightDistance
 							  / inchCenterDistance * inchLeftDistance) - M_PI_2;
 	
-	result.robotAngle = radTapeQuad.tl.x + asin(sin(radWidth) / inchTapesApart * inchRightDistance
-												  / inchCenterDistance * (inchTapesApart / 2));
+	result.robotAngle = radTapeQuad.tl.x + asin(sin(radWidth) / inchOuterTapesApart * inchRightDistance
+												  / inchCenterDistance * (inchOuterTapesApart / 2));
+
+	
+	std::cout << "x:" << result.distance * sin(result.tapeAngle) << 
+	" y:" << result.distance * cos(result.tapeAngle) << 
+	" height:" << inchCalcTapesAboveGround << '\n';
 	std::cout << "tapeAngle: " << result.tapeAngle << " robotAngle: " << result.robotAngle << '\n' << std::endl;
+
 	return { true, result };
 }
 
