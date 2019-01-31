@@ -75,14 +75,13 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	// Uses law of sines to get the angle, A, between leftDistance and tapeWidth
 	// then uses law of cosines to get the remaining side of the leftDistance-A-(tapeWidth/2) triangle
 	// which is centerDistance
-	/*double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2) -
+	double inchCenterDistanceShouldBe = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2) -
 							   inchLeftDistance*inchTapesApart*
 							   sqrt(1 - pow(sin(radWidth) / inchTapesApart * inchRightDistance, 2))); // cos(A)
-	*/
+	
 	// alternate version, for testing, that doesn't take into account the observed tape width
 	double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2)
-	 - inchTapesApart/2/inchRightDistance * 
-	 (pow(inchLeftDistance, 2) + pow(inchRightDistance, 2) - pow(inchTapesApart, 2)));
+	 - (pow(inchLeftDistance, 2) + pow(inchTapesApart, 2) - pow(inchRightDistance, 2)) / 2);
 
 	double radWidthShouldBe = acos((pow(inchLeftDistance,2) + pow(inchRightDistance,2) - pow(inchTapesApart,2))
 	/ (2*inchRightDistance*inchLeftDistance));
@@ -94,9 +93,9 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	double inchCalcTapesAboveGround = (inchCalcTapesAboveGroundLeft + inchCalcTapesAboveGroundRight) / 2;
 
 	std::cout << "distance: left: " << inchLeftDistance << " right: " << inchRightDistance << 
-		" center: " << inchCenterDistance << " height: " << inchCalcTapesAboveGround 
-		<< "\nradWidth: " << radWidth << " should be: " << radWidthShouldBe << 
-		 " radHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << std::endl;
+	" center: " << inchCenterDistance << " should be: " << inchCenterDistanceShouldBe <<
+	"\nheight: " << inchCalcTapesAboveGround << " radWidth: " << radWidth << " should be: " << radWidthShouldBe <<
+	"\nradHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << ' ';
 
 	if (inchCenterDistance > inchMinDistance &&
 		abs(inchCalcTapesAboveGroundLeft - inchCalcTapesAboveGroundRight) < inchTapeHeightTolerance) {
@@ -113,14 +112,27 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	
 	result.distance = inchCenterDistance;
 	
-	// sin(A) / centerDistance == sin(90 + tapeAngle) / leftDistance
-	result.tapeAngle = asin(sin(radWidth) / inchTapesApart * inchRightDistance
-							  / inchCenterDistance * inchLeftDistance) - M_PI_2;
+	// the part of the width angle left of centerDistance
+	// sin(A) / centerDistance == sin(leftAngle) / (inchTapesApart / 2)
+	double radLeftWidth = asin(sin(radWidth) / inchTapesApart * inchRightDistance
+						   / inchCenterDistance * (inchTapesApart / 2));
+	result.robotAngle = radTapeQuad.tl.x + radLeftWidth;
 	
-	result.robotAngle = radTapeQuad.tl.x + asin(sin(radWidth) / inchTapesApart * inchRightDistance
-												  / inchCenterDistance * (inchTapesApart / 2));
+	// Let B = the angle between centerDistance and tapeApart/2.
+	// tapeAngle = 90 - B. A + leftWidth + B = 180
+	result.tapeAngle = (radLeftWidth + asin(sin(radWidth) / inchTapesApart * inchRightDistance)) - M_PI_2;
+	
 	std::cout << "tapeAngle: " << result.tapeAngle << " robotAngle: " << result.robotAngle << '\n' << std::endl;
 	return { true, result };
+}
+
+void testSideways() {
+	for (int leftmost = 0; leftmost < 402-231; leftmost += 10) {
+		std::cout << "center: " << leftmost + 231/2 << std::endl;
+		cv::Rect left(leftmost, 31, 10, 117);
+		cv::Rect right(leftmost+231-10, 31, 10, 117);
+		processRects(left, right, 402, 800);
+	}
 }
 
 std::vector<VisionTarget> doVision(cv::Mat image) {
@@ -145,6 +157,7 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 
 
 	const float rectSizeDifferenceTolerance = 0.2; // fraction of width/height
+	const float rectYDifferenceTolerance = 0.5;
 	const float rectDistanceTolerance = 5; // multiplier of the width of one rectangle, that the whole vision target can be
 
 	// find rects that are close enough in size and distance
@@ -154,7 +167,8 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 				left.br().x < right.tl().x &&
 				left.tl().x + (left.width + right.width) / 2 * rectDistanceTolerance > right.br().x &&
 			    abs(1 - left.width / right.width) < rectSizeDifferenceTolerance &&
-				abs(1 - left.height / right.height) < rectSizeDifferenceTolerance) {
+				abs(1 - left.height / right.height) < rectSizeDifferenceTolerance &&
+				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * left.width) {
 
 				ProcessRectsResult result = processRects(left, right, image.cols, image.rows);
 				
