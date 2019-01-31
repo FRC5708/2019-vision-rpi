@@ -59,12 +59,7 @@ namespace vision5708Main {
 		}
 		
 		void sendData(std::vector<VisionData> data, std::chrono::time_point<std::chrono::steady_clock> timeFrom) {
-			
 			std::stringstream toSend;
-			
-			toSend << "@" <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - timeFrom).count()
-			<< endl;
 			
 			for (unsigned int i = 0; i != data.size(); ++i) {
 				char buf[200];
@@ -72,6 +67,9 @@ namespace vision5708Main {
 						i, data[i].isPort, data[i].distance, data[i].tapeAngle, data[i].robotAngle);
 				toSend << buf;
 			}
+			toSend << "@" <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - timeFrom).count()
+			<< endl;
 			
 			string sendStr = toSend.str();
 				
