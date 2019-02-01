@@ -11,16 +11,16 @@
 #include <mutex>
 #include <condition_variable>
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <fcntl.h>
-#include <arpa/inet.h>
 
 #include <signal.h>
 
 #include "vision.hpp"
 #include "streamer.hpp"
-
 
 using std::cout; using std::endl; using std::string;
 
@@ -38,52 +38,81 @@ namespace vision5708Main {
 	std::condition_variable condition;
 	
 	class RioComm {
-		int fd;
-		sockaddr_in clientAddr;
+		int fd = -1;
+		const char* client_name;
+		
 	public:
-		RioComm(char* client_ip) {
-			if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-				perror("socket failed");
-			}
-			int opt=1;
-			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-				perror("setsockopt failed");
-			}
-			clientAddr.sin_family=AF_INET;
-			int ret = inet_aton(client_ip, &clientAddr.sin_addr);
-  			if (ret == 0) { 
-				  perror("inet_aton");
-			}
-			clientAddr.sin_port=htons(8081);
+		void setupSocket() {
+			fd = -1;
 			
+			// addrinfo is linked list
+			struct addrinfo* addrs;
+			
+			struct addrinfo hints;
+			memset(&hints, 0, sizeof(hints));
+			hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+			hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+			
+			int error = getaddrinfo(client_name, "8081", &hints, &addrs);
+			if (error != 0) {
+				fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
+			}
+			
+			for (struct addrinfo* rp = addrs; rp != nullptr; rp = rp->ai_next) {
+				
+				fd = socket(rp->ai_family, rp->ai_socktype,
+							 rp->ai_protocol);
+				if (fd == -1) continue;
+				
+				if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
+					break;
+				}
+				else {
+					close(fd);
+					fd = -1;
+					perror("connect failed");
+				}
+			}
+			freeaddrinfo(addrs);
+			if (fd == -1) {
+				printf("could not resolve or connect to: %s", client_name);
+				return;
+			}
+		}
+		RioComm(const char* client_name) : client_name(client_name) {
+			setupSocket();
 		}
 		
 		void sendData(std::vector<VisionData> data, std::chrono::time_point<std::chrono::steady_clock> timeFrom) {
 			std::stringstream toSend;
 			
-			for (unsigned int i = 0; i != data.size(); ++i) {
-				char buf[200];
-				sprintf(buf, "#%d: isPort=%d distance=%f tapeAngle=%f robotAngle=%f\n",
-						i, data[i].isPort, data[i].distance, data[i].tapeAngle, data[i].robotAngle);
-				toSend << buf;
-			}
-			toSend << "@" <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - timeFrom).count()
-			<< endl;
+			if (fd < 0) setupSocket();
 			
-			string sendStr = toSend.str();
+			if (fd >= 0) {
+			
+				for (unsigned int i = 0; i != data.size(); ++i) {
+					char buf[200];
+					sprintf(buf, "#%d: isPort=%d distance=%f tapeAngle=%f robotAngle=%f\n",
+							i, data[i].isPort, data[i].distance, data[i].tapeAngle, data[i].robotAngle);
+					toSend << buf;
+				}
+				toSend << "@" <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - timeFrom).count()
+				<< endl;
 				
-			if (sendto(fd, sendStr.c_str(), sendStr.length(), 0, 
-			(sockaddr*)&clientAddr, sizeof(clientAddr)) < 0) {
-				perror("Failed to send data");
+				string sendStr = toSend.str();
+				
+				if (send(fd, sendStr.c_str(), sendStr.length(), 0) < 0) {
+					perror("Failed to send data");
+					setupSocket();
+				}
+				cout << sendStr;
 			}
-			cout << sendStr;
 		}
 	};
 	
 	void VisionThread() {
-		char addr[]="127.0.0.1";
-		RioComm rioComm=RioComm(addr);
+		RioComm rioComm=RioComm("localhost");
 		
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
