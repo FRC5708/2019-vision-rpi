@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		505B9A6822076D7A00AB7F99 /* RedContourGrip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 505B9A6722076D7900AB7F99 /* RedContourGrip.cpp */; };
 		50A4FFED21F27C780083B20A /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 50A4FFDD21F27C780083B20A /* main.cpp */; };
 		50A4FFF421F281C10083B20A /* grip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 50A4FFF021F281C10083B20A /* grip.cpp */; };
 		50A4FFF521F281C10083B20A /* vision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 50A4FFF321F281C10083B20A /* vision.cpp */; };
@@ -14,6 +15,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		505B9A6622076D7900AB7F99 /* RedContourGrip.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RedContourGrip.hpp; sourceTree = "<group>"; };
+		505B9A6722076D7900AB7F99 /* RedContourGrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RedContourGrip.cpp; sourceTree = "<group>"; };
 		50A4FFA521F2792D0083B20A /* 2019-vision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "2019-vision.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		50A4FFCA21F27C780083B20A /* _019_vision.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = _019_vision.entitlements; sourceTree = "<group>"; };
 		50A4FFCB21F27C780083B20A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -86,6 +89,8 @@
 				50A4FFDD21F27C780083B20A /* main.cpp */,
 				50A4FFF021F281C10083B20A /* grip.cpp */,
 				50A4FFF121F281C10083B20A /* grip.hpp */,
+				505B9A6722076D7900AB7F99 /* RedContourGrip.cpp */,
+				505B9A6622076D7900AB7F99 /* RedContourGrip.hpp */,
 				50A4FFF221F281C10083B20A /* vision.hpp */,
 				50A4FFF321F281C10083B20A /* vision.cpp */,
 				50A845D321F501B300C30AC2 /* streamer.cpp */,
@@ -170,6 +175,7 @@
 			files = (
 				50A845D521F501B300C30AC2 /* streamer.cpp in Sources */,
 				50A4FFED21F27C780083B20A /* main.cpp in Sources */,
+				505B9A6822076D7A00AB7F99 /* RedContourGrip.cpp in Sources */,
 				50A4FFF521F281C10083B20A /* vision.cpp in Sources */,
 				50A4FFF421F281C10083B20A /* grip.cpp in Sources */,
 			);

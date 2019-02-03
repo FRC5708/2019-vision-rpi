@@ -14,7 +14,7 @@ namespace grip {
 		cv::Mat hslThresholdInput = source0;
 		double hslThresholdHue[] = {0.0, 180.0};
 		double hslThresholdSaturation[] = {0.0, 255.0};
-		double hslThresholdLuminance[] = {150, 255.0};
+		double hslThresholdLuminance[] = {200, 255.0};
 		hslThreshold(hslThresholdInput, hslThresholdHue, hslThresholdSaturation, hslThresholdLuminance, this->hslThresholdOutput);
 		//Step Find_Contours0:
 		//input
@@ -24,7 +24,7 @@ namespace grip {
 		//Step Filter_Contours0:
 		//input
 		std::vector<std::vector<cv::Point> > filterContoursContours = findContoursOutput;
-		double filterContoursMinArea = 125.0;  // default Double
+		double filterContoursMinArea = 100.0;  // default Double
 		double filterContoursMinPerimeter = 0.0;  // default Double
 		double filterContoursMinWidth = 0.0;  // default Double
 		double filterContoursMaxWidth = 1000.0;  // default Double

@@ -53,7 +53,7 @@ namespace vision5708Main {
 			hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
 			hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
 			
-			int error = getaddrinfo(client_name, "8081", &hints, &addrs);
+			int error = getaddrinfo(client_name, "5800", &hints, &addrs);
 			if (error != 0) {
 				fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
 			}
@@ -75,7 +75,7 @@ namespace vision5708Main {
 			}
 			freeaddrinfo(addrs);
 			if (fd == -1) {
-				printf("could not resolve or connect to: %s", client_name);
+				printf("could not resolve or connect to: %s\n", client_name);
 				return;
 			}
 		}
@@ -112,7 +112,7 @@ namespace vision5708Main {
 	};
 	
 	void VisionThread() {
-		RioComm rioComm=RioComm("localhost");
+		RioComm rioComm=RioComm("10.57.8.2");
 		
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
@@ -133,7 +133,7 @@ namespace vision5708Main {
 	
 	int main(int argc, char** argv) {
 		signal(SIGPIPE, SIG_IGN);
-		system("ffmpeg -f v4l2 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 > /dev/null 2>&1 &");
+		system("ffmpeg -f v4l2 -pix_fmt yuyv422 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 &");
 		
 		cv::VideoCapture camera;
 		
@@ -147,7 +147,7 @@ namespace vision5708Main {
 			#else
 			success = camera.open(cameraId);
 			#endif
-			cout << "camera opening " << (success? ("succeeded @/dev/video" + cameraId) : "failed") << endl;
+			cout << "camera opening " << (success? ("succeeded @/dev/video" + std::to_string(cameraId)) : "failed") << endl;
 			if (!success) usleep(200000); // 200 ms
 		}
 		
@@ -167,10 +167,11 @@ namespace vision5708Main {
 		
 		while (true) {
 			auto frameReadStart = clock.now();
-			while (!camera.read(currentFrame)) {
-				usleep(5000);
-			}
-			cout << "reading frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+			camera.grab();
+			cout << "grabbing frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+			(clock.now() - frameReadStart).count() << " ms" << endl;
+			camera.retrieve(currentFrame);
+			cout << "retrieving frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
 			(clock.now() - frameReadStart).count() << " ms" << endl;
 			/*
 			 frameCount++;
