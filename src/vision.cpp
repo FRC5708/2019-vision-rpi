@@ -1,5 +1,5 @@
 #include "vision.hpp"
-#include "grip.hpp"
+#include "RedContourGrip.hpp"
 
 
 bool isNanOrInf(double in) {
@@ -43,7 +43,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	const double inchMinDistance = 1;
 	
 	// need precise values of these
-	const double radCameraPitch = 0;//(10/180)*M_PI; // above horizontal
+	const double radCameraPitch = (10/180)*M_PI; // above horizontal
 	const double inchCameraHeight = 9.5; // from ground
 	
 	
@@ -51,8 +51,8 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	// see: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 	// right now, it assumes perfect pinhole camera
 	
-	const double radFOV = (60.0/180.0)*M_PI;
-	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * (pixImageWidth / 2); // pixels. Estimated from the camera's FOV spec.
+	const double radFOV = (69.0/180.0)*M_PI;
+	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
 	
 	struct { AngularCoord tl, tr, bl, br; } radTapeQuad = {
 		toAngularCoord(left.tl().x, left.tl().y, pixFocalLength, pixImageWidth, pixImageHeight),
@@ -64,13 +64,19 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 		   && abs(radTapeQuad.tr.x - radTapeQuad.br.x) < 0.00000001);
 	
 	
-	double inchLeftDistance = inchTapesHeight /
-	(tan(radCameraPitch + radTapeQuad.tl.y) - tan(radCameraPitch + radTapeQuad.bl.y));
+	double inchLeftDistance = (inchTapesHeight /
+							   (tan(radCameraPitch + radTapeQuad.tl.y) -
+								tan(radCameraPitch + radTapeQuad.bl.y)))
+	* cos(radCameraPitch);
+	
 	double inchRightDistance = inchTapesHeight /
-	(tan(radCameraPitch + radTapeQuad.tr.y) - tan(radCameraPitch + radTapeQuad.br.y));
+	(tan(radCameraPitch + radTapeQuad.tr.y) -
+	 tan(radCameraPitch + radTapeQuad.br.y))
+	* cos(radCameraPitch);
 	
 	double radWidth = radTapeQuad.tr.x - radTapeQuad.tl.x;
 	assert(radWidth > 0);
+	
 	
 	// Uses law of sines to get the angle, A, between leftDistance and tapeWidth
 	// then uses law of cosines to get the remaining side of the leftDistance-A-(tapeWidth/2) triangle
@@ -97,8 +103,8 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	"\nheight: " << inchCalcTapesAboveGround << " radWidth: " << radWidth << " should be: " << radWidthShouldBe <<
 	"\nradHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << ' ';
 
-	if (inchCenterDistance > inchMinDistance &&
-		abs(inchCalcTapesAboveGroundLeft - inchCalcTapesAboveGroundRight) < inchTapeHeightTolerance) {
+	if (inchCenterDistance > inchMinDistance/* &&
+		abs(inchCalcTapesAboveGroundLeft - inchCalcTapesAboveGroundRight) < inchTapeHeightTolerance*/) {
 
 		if (abs(inchCalcTapesAboveGround - inchHatchTapesAboveGround) < inchTapeHeightTolerance) {
 			result.isPort = false;
@@ -106,7 +112,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 		else if (abs(inchCalcTapesAboveGround - inchPortTapesAboveGround) < inchTapeHeightTolerance) {
 			result.isPort = true;
 		}
-		else return { false, {}};
+		//else return { false, {}};
 	}
 	else return { false, {}};
 	
@@ -138,7 +144,7 @@ void testSideways() {
 std::vector<VisionTarget> doVision(cv::Mat image) {
 	std::vector<VisionTarget> results;
 
-	grip::ContourGrip finder;
+	grip::RedContourGrip finder;
 	finder.Process(image);
 	std::vector<std::vector<cv::Point> >* contours = finder.GetFilterContoursOutput();
 
@@ -156,19 +162,23 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 	}
 
 
-	const float rectSizeDifferenceTolerance = 0.2; // fraction of width/height
-	const float rectYDifferenceTolerance = 0.5;
-	const float rectDistanceTolerance = 5; // multiplier of the width of one rectangle, that the whole vision target can be
+	const float rectSizeDifferenceTolerance = 0.5; // fraction of width/height
+	const float rectYDifferenceTolerance = 1;
+	const float rectDistanceTolerance = 10; // multiplier of the width of one rectangle, that the whole vision target can be
 
+	for (auto rect : rects) {
+		std::cout << "found rect: x:" << rect.x << ",y:" << rect.y << ",w:" << rect.width << ",h:" << rect.height << std::endl;
+	}
+	
 	// find rects that are close enough in size and distance
 	for (auto left : rects) {
 		for (auto right : rects) {
 			if (left != right &&
 				left.br().x < right.tl().x &&
 				left.tl().x + (left.width + right.width) / 2 * rectDistanceTolerance > right.br().x &&
-			    abs(1 - left.width / right.width) < rectSizeDifferenceTolerance &&
-				abs(1 - left.height / right.height) < rectSizeDifferenceTolerance &&
-				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * left.width) {
+			    abs(left.width - right.width) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
+				abs(left.height - right.height) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
+				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
 
 				ProcessRectsResult result = processRects(left, right, image.cols, image.rows);
 				

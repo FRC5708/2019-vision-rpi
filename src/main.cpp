@@ -190,8 +190,8 @@ namespace vision5708Main {
 }
 
 int main(int argc, char** argv) {
-	testSideways();
-	return 0;
+	//testSideways();
+	//return 0;
 	
 	if(argc < 2){
 		return -1;

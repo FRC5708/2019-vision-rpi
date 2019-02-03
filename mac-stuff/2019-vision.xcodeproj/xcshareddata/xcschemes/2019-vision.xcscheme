@@ -63,7 +63,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "/Users/max/Documents/robotics/2019-vision/testimg.png"
+            argument = "/Users/max/Documents/robotics/2019-vision/camera-testimg.jpg"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
