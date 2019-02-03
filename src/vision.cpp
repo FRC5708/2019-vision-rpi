@@ -66,13 +66,11 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	
 	double inchLeftDistance = (inchTapesHeight /
 							   (tan(radCameraPitch + radTapeQuad.tl.y) -
-								tan(radCameraPitch + radTapeQuad.bl.y)))
-	* cos(radCameraPitch);
+								tan(radCameraPitch + radTapeQuad.bl.y)));
 	
 	double inchRightDistance = inchTapesHeight /
 	(tan(radCameraPitch + radTapeQuad.tr.y) -
-	 tan(radCameraPitch + radTapeQuad.br.y))
-	* cos(radCameraPitch);
+	 tan(radCameraPitch + radTapeQuad.br.y));
 	
 	double radWidth = radTapeQuad.tr.x - radTapeQuad.tl.x;
 	assert(radWidth > 0);
@@ -101,7 +99,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	std::cout << "distance: left: " << inchLeftDistance << " right: " << inchRightDistance << 
 	" center: " << inchCenterDistance << " should be: " << inchCenterDistanceShouldBe <<
 	"\nheight: " << inchCalcTapesAboveGround << " radWidth: " << radWidth << " should be: " << radWidthShouldBe <<
-	"\nradHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << ' ';
+	"\nradHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << '\n';
 
 	if (inchCenterDistance > inchMinDistance/* &&
 		abs(inchCalcTapesAboveGroundLeft - inchCalcTapesAboveGroundRight) < inchTapeHeightTolerance*/) {
