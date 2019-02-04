@@ -61,8 +61,7 @@ void Streamer::launchGStreamer(const char* recieveAddress) {
 			nullptr
 		};
 		
-		extern char** environ;
-		execve("/bin/sh", (char *const* )argv, environ);
+		execv("/bin/sh", (char *const* )argv);
 		exit(127);
 	}
 	else gstreamerPID = pid;
@@ -107,20 +106,18 @@ Streamer::Streamer(int width, int height) : width(width), height(height) {
 				continue;
 			}
 			
-			// wait for client's gstreamer to initialize
-			sleep(1);
-			
 			const char message[] = "Launching remote GStreamer...\n";
 			if (write(clientFd, message, sizeof(message)) == -1) {
 				perror("write");
 			}
-			
-			char strAddr[INET6_ADDRSTRLEN];
-			inet_ntop(AF_INET6, &(clientAddr.sin6_addr), strAddr, sizeof(strAddr));
-			launchGStreamer(strAddr);
-			
 			if (close(clientFd) == -1) perror("close");
 			
+			// wait for client's gstreamer to initialize
+			sleep(1);
+
+			char strAddr[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, &(clientAddr.sin6_addr), strAddr, sizeof(strAddr));
+			launchGStreamer(strAddr);			
 		}
 	}).detach();
 }
