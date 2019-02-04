@@ -17,6 +17,7 @@
 /* Begin PBXFileReference section */
 		505B9A6622076D7900AB7F99 /* RedContourGrip.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RedContourGrip.hpp; sourceTree = "<group>"; };
 		505B9A6722076D7900AB7F99 /* RedContourGrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RedContourGrip.cpp; sourceTree = "<group>"; };
+		505B9A732207B86A00AB7F99 /* start_streaming.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = start_streaming.sh; path = ../start_streaming.sh; sourceTree = "<group>"; };
 		50A4FFA521F2792D0083B20A /* 2019-vision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "2019-vision.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		50A4FFCA21F27C780083B20A /* _019_vision.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = _019_vision.entitlements; sourceTree = "<group>"; };
 		50A4FFCB21F27C780083B20A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -45,6 +46,7 @@
 		50A4FF9C21F2792D0083B20A = {
 			isa = PBXGroup;
 			children = (
+				505B9A732207B86A00AB7F99 /* start_streaming.sh */,
 				50A4FFA621F2792D0083B20A /* Products */,
 				50A4FFC221F27C780083B20A /* 2019-vison */,
 			);

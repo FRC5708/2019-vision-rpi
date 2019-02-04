@@ -144,15 +144,13 @@ namespace vision5708Main {
 			
 			#ifdef __linux__
 			success = camera.open("/dev/video" + std::to_string(cameraId));
-			#else
-			success = camera.open(cameraId);
-			#endif
 			cout << "camera opening " << (success? ("succeeded @/dev/video" + std::to_string(cameraId)) : "failed") << endl;
+			#else
+			success = camera.open(cameraId - 1);
+			cout << "camera opening " << (success? "succeeded" : "failed") << endl;
+			#endif
 			if (!success) usleep(200000); // 200 ms
 		}
-		
-		camera.set(cv::CAP_PROP_FRAME_WIDTH, 853);
-		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
 		
 		while (!camera.read(currentFrame)) {
 			usleep(5000);
@@ -160,7 +158,6 @@ namespace vision5708Main {
 		cout << "Got first frame. width=" << currentFrame.cols << ", height=" << currentFrame.rows << endl;
 		
 		Streamer streamer(currentFrame.cols, currentFrame.rows);
-		cout << "Initialized video streamer" << endl;
 		
 		std::thread thread(&VisionThread);
 		
@@ -170,18 +167,12 @@ namespace vision5708Main {
 			camera.grab();
 			cout << "grabbing frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
 			(clock.now() - frameReadStart).count() << " ms" << endl;
+			frameReadStart = clock.now();
 			camera.retrieve(currentFrame);
 			cout << "retrieving frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
 			(clock.now() - frameReadStart).count() << " ms" << endl;
-			/*
-			 frameCount++;
-			 cout << "encoding frame. Instant FPS: " <<
-			 1.0/std::chrono::duration<double>(clock.now() - lastFrame).count()
-			 << "; Average FPS: " <<
-			 frameCount * (1.0/std::chrono::duration<double>(clock.now() - beginning).count()) << endl;
-			 
-			 lastFrame = clock.now();
-			 */
+			
+			
 			currentFrameTime = clock.now();
 			waitMutex.unlock();
 			condition.notify_one();
