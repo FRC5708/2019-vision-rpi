@@ -174,7 +174,7 @@ namespace vision5708Main {
 			streamer.writeFrame(currentFrame, lastResults);
 			}*/
 
-		cv::Mat image=cv::imread(path, CV_LOAD_IMAGE_COLOR);
+		cv::Mat image=cv::imread(path);
 		cout << "image size: " << image.cols << 'x' << image.rows << endl;
 		std::vector<VisionTarget> te = doVision(image);
 		cout << "Testing Path: " << path << std::endl;
@@ -190,7 +190,10 @@ namespace vision5708Main {
 }
 
 int main(int argc, char** argv) {
-	if(argc!=2){
+	//testSideways();
+	//return 0;
+	
+	if(argc < 2){
 		return -1;
 	}
 	path=argv[1];

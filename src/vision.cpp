@@ -1,5 +1,5 @@
 #include "vision.hpp"
-#include "grip.hpp"
+#include "RedContourGrip.hpp"
 #include <opencv2/calib3d.hpp>
 
 
@@ -10,22 +10,16 @@ bool isNanOrInf(double in) {
 struct AngularCoord {
 	double x; double y;
 };
-// this can probably be simplfied
 AngularCoord toAngularCoord(double pixX, double pixY, double pixFocalLength, int pixImageWidth, int pixImageHeight) {
 	double centeredX = pixX - pixImageWidth / 2;
 	double centeredY = pixImageHeight / 2 - pixY;
 	
-	// get coords, with pole on center of image
-	double lng = atan2(centeredY, centeredX);
-	double lat = atan2(sqrt(centeredX*centeredX + centeredY*centeredY), pixFocalLength);
-	std::cout << "pixel: " << pixX << "," << pixY
-	<< " lat: " << lat/M_PI*180 << ", lng: " << lng/M_PI*180 << std::endl;
+	double rayLength = sqrt(centeredX*centeredX + centeredY*centeredY + pixFocalLength*pixFocalLength);
+	double radX = atan2(centeredX, pixFocalLength);
+	double radY = asin(centeredY / rayLength);
 	
-	// then convert so poles are on left and right: https://en.wikipedia.org/wiki/Spherical_coordinate_system
-	
-	double radX = atan2(sin(lat) * cos(lng), cos(lat));
-	double radY = M_PI_2 - acos(sin(lat)*sin(lng));
-	std::cout << "angular coord: " << radX << ", " << radY << std::endl;
+	 std::cout << "pixel: " << pixX << "," << pixY
+	 << " angular coord: " << radX << ", " << radY << std::endl;
 	return { radX, radY };
 }
 
@@ -73,7 +67,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	const double inchMinDistance = 1;
 	
 	// need precise values of these
-	const double radCameraPitch = 0;//(10/180)*M_PI; // above horizontal
+	const double radCameraPitch = (10/180)*M_PI; // above horizontal
 	const double inchCameraHeight = 9.5; // from ground
 	
 	
@@ -81,8 +75,8 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	// see: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 	// right now, it assumes perfect pinhole camera
 	
-	const double radFOV = (60.0/180.0)*M_PI;
-	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * (pixImageWidth / 2); // pixels. Estimated from the camera's FOV spec.
+	const double radFOV = (69.0/180.0)*M_PI;
+	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
 	
 	
 	double cameraMatrixVals[] {
@@ -127,13 +121,17 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 		   && abs(radTapeQuad.tr.x - radTapeQuad.br.x) < 0.00000001);
 	
 	
-	double inchLeftDistance = inchTapesHeight /
-	(tan(radCameraPitch + radTapeQuad.tl.y) - tan(radCameraPitch + radTapeQuad.bl.y));
+	double inchLeftDistance = (inchTapesHeight /
+							   (tan(radCameraPitch + radTapeQuad.tl.y) -
+								tan(radCameraPitch + radTapeQuad.bl.y)));
+	
 	double inchRightDistance = inchTapesHeight /
-	(tan(radCameraPitch + radTapeQuad.tr.y) - tan(radCameraPitch + radTapeQuad.br.y));
+	(tan(radCameraPitch + radTapeQuad.tr.y) -
+	 tan(radCameraPitch + radTapeQuad.br.y));
 	
 	double radWidth = radTapeQuad.tr.x - radTapeQuad.tl.x;
 	assert(radWidth > 0);
+	
 	
 	// Uses law of sines to get the angle, A, between leftDistance and tapeWidth
 	// then uses law of cosines to get the remaining side of the leftDistance-A-(tapeWidth/2) triangle
@@ -143,9 +141,8 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 							   sqrt(1 - pow(sin(radWidth) / inchOuterTapesApart * inchRightDistance, 2))); // cos(A)
 	
 	// alternate version, for testing, that doesn't take into account the observed tape width
-	/*double inchCenterDistance = sqrt(pow(inchLeftDistance, 2) + pow(inchOuterTapesApart/2, 2)
-	 - inchOuterTapesApart/2/inchRightDistance * 
-	 (pow(inchLeftDistance, 2) + pow(inchRightDistance, 2) - pow(inchOuterTapesApart, 2)));*/
+	double inchCenterDistanceShouldBe = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2)
+	 - (pow(inchLeftDistance, 2) + pow(inchTapesApart, 2) - pow(inchRightDistance, 2)) / 2);
 
 	double radWidthShouldBe = acos((pow(inchLeftDistance,2) + pow(inchRightDistance,2) - pow(inchOuterTapesApart,2))
 	/ (2*inchRightDistance*inchLeftDistance));
@@ -157,12 +154,12 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	double inchCalcTapesAboveGround = (inchCalcTapesAboveGroundLeft + inchCalcTapesAboveGroundRight) / 2;
 
 	std::cout << "distance: left: " << inchLeftDistance << " right: " << inchRightDistance << 
-		" center: " << inchCenterDistance << " height: " << inchCalcTapesAboveGround 
-		<< "\nradWidth: " << radWidth << " should be: " << radWidthShouldBe << 
-		 " radHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << std::endl;
+	" center: " << inchCenterDistance << " should be: " << inchCenterDistanceShouldBe <<
+	"\nheight: " << inchCalcTapesAboveGround << " radWidth: " << radWidth << " should be: " << radWidthShouldBe <<
+	"\nradHeight:L: " << radTapeQuad.tl.y - radTapeQuad.bl.y << " R: " << radTapeQuad.tr.y - radTapeQuad.br.y << '\n';
 
-	if (inchCenterDistance > inchMinDistance &&
-		abs(inchCalcTapesAboveGroundLeft - inchCalcTapesAboveGroundRight) < inchTapeHeightTolerance) {
+	if (inchCenterDistance > inchMinDistance/* &&
+		abs(inchCalcTapesAboveGroundLeft - inchCalcTapesAboveGroundRight) < inchTapeHeightTolerance*/) {
 
 		if (abs(inchCalcTapesAboveGround - inchHatchTapesAboveGround) < inchTapeHeightTolerance) {
 			result.isPort = false;
@@ -170,18 +167,21 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 		else if (abs(inchCalcTapesAboveGround - inchPortTapesAboveGround) < inchTapeHeightTolerance) {
 			result.isPort = true;
 		}
-		else return { false, {}};
+		//else return { false, {}};
 	}
 	else return { false, {}};
 	
 	result.distance = inchCenterDistance;
 	
-	// sin(A) / centerDistance == sin(90 + tapeAngle) / leftDistance
-	result.tapeAngle = asin(sin(radWidth) / inchOuterTapesApart * inchRightDistance
-							  / inchCenterDistance * inchLeftDistance) - M_PI_2;
-	
-	result.robotAngle = radTapeQuad.tl.x + asin(sin(radWidth) / inchOuterTapesApart * inchRightDistance
-												  / inchCenterDistance * (inchOuterTapesApart / 2));
+	// the part of the width angle left of centerDistance
+	// sin(A) / centerDistance == sin(leftAngle) / (inchTapesApart / 2)
+	double radLeftWidth = asin(sin(radWidth) / inchTapesApart * inchRightDistance
+						   / inchCenterDistance * (inchTapesApart / 2));
+	result.robotAngle = radTapeQuad.tl.x + radLeftWidth;
+	// Let B = the angle between centerDistance and tapeApart/2.
+	// tapeAngle = 90 - B. A + leftWidth + B = 180
+	result.tapeAngle = (radLeftWidth + asin(sin(radWidth) / inchTapesApart * inchRightDistance)) - M_PI_2;
+
 
 	
 	std::cout << "x:" << result.distance * sin(result.tapeAngle) << 
@@ -192,10 +192,19 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	return { true, result };
 }
 
+void testSideways() {
+	for (int leftmost = 0; leftmost < 402-231; leftmost += 10) {
+		std::cout << "center: " << leftmost + 231/2 << std::endl;
+		cv::Rect left(leftmost, 31, 10, 117);
+		cv::Rect right(leftmost+231-10, 31, 10, 117);
+		processRects(left, right, 402, 800);
+	}
+}
+
 std::vector<VisionTarget> doVision(cv::Mat image) {
 	std::vector<VisionTarget> results;
 
-	grip::ContourGrip finder;
+	grip::RedContourGrip finder;
 	finder.Process(image);
 	std::vector<std::vector<cv::Point> >* contours = finder.GetFilterContoursOutput();
 
@@ -213,17 +222,23 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 	}
 
 
-	const float rectSizeDifferenceTolerance = 0.2; // fraction of width/height
-	const float rectDistanceTolerance = 5; // multiplier of the width of one rectangle, that the whole vision target can be
+	const float rectSizeDifferenceTolerance = 0.5; // fraction of width/height
+	const float rectYDifferenceTolerance = 1;
+	const float rectDistanceTolerance = 10; // multiplier of the width of one rectangle, that the whole vision target can be
 
+	for (auto rect : rects) {
+		std::cout << "found rect: x:" << rect.x << ",y:" << rect.y << ",w:" << rect.width << ",h:" << rect.height << std::endl;
+	}
+	
 	// find rects that are close enough in size and distance
 	for (auto left : rects) {
 		for (auto right : rects) {
 			if (left != right &&
 				left.br().x < right.tl().x &&
 				left.tl().x + (left.width + right.width) / 2 * rectDistanceTolerance > right.br().x &&
-			    abs(1 - left.width / right.width) < rectSizeDifferenceTolerance &&
-				abs(1 - left.height / right.height) < rectSizeDifferenceTolerance) {
+			    abs(left.width - right.width) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
+				abs(left.height - right.height) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
+				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
 
 				ProcessRectsResult result = processRects(left, right, image.cols, image.rows);
 				
