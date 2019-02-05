@@ -50,67 +50,41 @@ struct ProcessRectsResult {
 	bool success;
 	VisionData calcs;
 };
+
+// all the constants
+constexpr double radTapeOrientation = 14.5/180*M_PI;
+constexpr double inchTapesWidth = 2;
+constexpr double inchTapesLength = 5.5;
+constexpr double inchInnerTapesApart = 8;
+const double inchTapesHeight = inchTapesLength + inchTapesWidth*sin(radTapeOrientation); // from bottom to top of tapes
+const double inchTapeTopsApart = inchInnerTapesApart + inchTapesWidth*cos(radTapeOrientation);
+const double inchTapeBottomsApart = inchInnerTapesApart + inchTapesLength*sin(radTapeOrientation);
+const double inchOuterTapesApart = inchTapeTopsApart + inchTapesLength*sin(radTapeOrientation); // from outermost edge
+const double inchHatchTapesAboveGround = 2*12+7.5 - inchTapesHeight;
+const double inchPortTapesAboveGround = 3*12+3.125 - inchTapesHeight;
+
+// maximum difference in calculated and actual tape height above ground
+constexpr double inchTapeHeightTolerance = 1000; // for testing
+
+constexpr double inchMinDistance = 1;
+
+// need precise values of these
+constexpr double radCameraPitch = (10/180)*M_PI; // above horizontal
+constexpr double inchCameraHeight = 9.5; // from ground
+
+
+// todo: use actual calibration data
+// see: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+// right now, it assumes perfect pinhole camera
+
+constexpr double radFOV = (69.0/180.0)*M_PI;
+
 // this function uses hungarian notation for numbers. It's confusing otherwise
 ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth, int pixImageHeight) {
 	VisionData result;
 	
-	// all the constants
-	const double radTapeOrientation = 14.5/180*M_PI;
-	const double inchTapesHeight = 5.5 + 2*sin(radTapeOrientation); // from bottom to top of tapes
-	const double inchOuterTapesApart = 8 + 5.5*sin(radTapeOrientation) + 2*cos(radTapeOrientation); // from outermost edge
-	const double inchHatchTapesAboveGround = 2*12+7.5 - inchTapesHeight;
-	const double inchPortTapesAboveGround = 3*12+3.125 - inchTapesHeight;
-	
-	// maximum difference in calculated and actual tape height above ground
-	const double inchTapeHeightTolerance = 1000; // for testing
-
-	const double inchMinDistance = 1;
-	
-	// need precise values of these
-	const double radCameraPitch = (10/180)*M_PI; // above horizontal
-	const double inchCameraHeight = 9.5; // from ground
-	
-	
-	// todo: use actual calibration data
-	// see: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
-	// right now, it assumes perfect pinhole camera
-	
-	const double radFOV = (69.0/180.0)*M_PI;
 	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
 	
-	
-	double cameraMatrixVals[] {
-		pixFocalLength, 0, pixImageWidth/2,
-		0, pixFocalLength, pixImageHeight/2,
-		0, 0, 1
-	};
-	cv::Mat cameraMatrix(3, 3, CV_64F, cameraMatrixVals);
-
-	cv::Mat rotation, translation;
-
-	// world coords: (0, 0, 0) at bottom center of tapes
-	// up and right are positive. y-axis is vertical.
-	cv::solvePnP(std::vector<cv::Point3f>({ // clockwise from top left corner of tapes
-		cv::Point3f(-inchOuterTapesApart/2, inchTapesHeight, 0),
-		cv::Point3f(inchOuterTapesApart/2, inchTapesHeight, 0),
-		cv::Point3f(inchOuterTapesApart/2, 0, 0),
-		cv::Point3f(-inchOuterTapesApart/2, 0, 0)
-		 }), std::vector<cv::Point2f>({
-			 left.tl(), cv::Point2f(right.br().x, right.tl().y),
-			 right.br(), cv::Point2f(left.tl().x, left.br().y)
-		 }), cameraMatrix, {}, rotation, translation);
-
-	cv::Vec3d angles = getEulerAngles(rotation);
-
-	// x is right postive, y is forwards positive
-	double inchRobotX = translation.at<double>(0);
-	double inchRobotY = -translation.at<double>(2); // should always be negative
-	double inchCalcTapesAboveGround2 = inchCameraHeight + translation.at<double>(1);
-
-	std::cout << "\npitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
-	<< "\ntrans: " << translation << 
-	"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround2 << '\n';
-
 	struct { AngularCoord tl, tr, bl, br; } radTapeQuad = {
 		toAngularCoord(left.tl().x, left.tl().y, pixFocalLength, pixImageWidth, pixImageHeight),
 		toAngularCoord(right.br().x, right.tl().y, pixFocalLength, pixImageWidth, pixImageHeight),
@@ -141,8 +115,8 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 							   sqrt(1 - pow(sin(radWidth) / inchOuterTapesApart * inchRightDistance, 2))); // cos(A)
 	
 	// alternate version, for testing, that doesn't take into account the observed tape width
-	double inchCenterDistanceShouldBe = sqrt(pow(inchLeftDistance, 2) + pow(inchTapesApart/2, 2)
-	 - (pow(inchLeftDistance, 2) + pow(inchTapesApart, 2) - pow(inchRightDistance, 2)) / 2);
+	double inchCenterDistanceShouldBe = sqrt(pow(inchLeftDistance, 2) + pow(inchOuterTapesApart/2, 2)
+	 - (pow(inchLeftDistance, 2) + pow(inchOuterTapesApart, 2) - pow(inchRightDistance, 2)) / 2);
 
 	double radWidthShouldBe = acos((pow(inchLeftDistance,2) + pow(inchRightDistance,2) - pow(inchOuterTapesApart,2))
 	/ (2*inchRightDistance*inchLeftDistance));
@@ -174,13 +148,13 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	result.distance = inchCenterDistance;
 	
 	// the part of the width angle left of centerDistance
-	// sin(A) / centerDistance == sin(leftAngle) / (inchTapesApart / 2)
-	double radLeftWidth = asin(sin(radWidth) / inchTapesApart * inchRightDistance
-						   / inchCenterDistance * (inchTapesApart / 2));
+	// sin(A) / centerDistance == sin(leftAngle) / (inchOuterTapesApart / 2)
+	double radLeftWidth = asin(sin(radWidth) / inchOuterTapesApart * inchRightDistance
+						   / inchCenterDistance * (inchOuterTapesApart / 2));
 	result.robotAngle = radTapeQuad.tl.x + radLeftWidth;
 	// Let B = the angle between centerDistance and tapeApart/2.
 	// tapeAngle = 90 - B. A + leftWidth + B = 180
-	result.tapeAngle = (radLeftWidth + asin(sin(radWidth) / inchTapesApart * inchRightDistance)) - M_PI_2;
+	result.tapeAngle = (radLeftWidth + asin(sin(radWidth) / inchOuterTapesApart * inchRightDistance)) - M_PI_2;
 
 
 	
@@ -190,6 +164,76 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	std::cout << "tapeAngle: " << result.tapeAngle << " robotAngle: " << result.robotAngle << '\n' << std::endl;
 
 	return { true, result };
+}
+
+struct ContourCorners {
+	cv::Point left, top, right, bottom;
+	ContourCorners() : left(INT_MAX, INT_MAX), 
+	top(INT_MAX, INT_MAX), 
+	right(0, 0),
+	bottom(0, 0) {}
+};
+
+ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
+	ContourCorners result;
+	
+	for (auto point : contour) {
+		if (point.x < result.left.x) result.left = point;
+		if (point.x > result.right.x) result.right = point;
+		if (point.y < result.top.y) result.top = point;
+		if (point.y > result.bottom.y) result.bottom = point;
+	}
+	return result;
+}
+
+VisionData processPoints(ContourCorners left, ContourCorners right, int pixImageWidth, int pixImageHeight) {
+	
+	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
+	
+	double cameraMatrixVals[] {
+		pixFocalLength, 0, pixImageWidth/2,
+		0, pixFocalLength, pixImageHeight/2,
+		0, 0, 1
+	};
+	cv::Mat cameraMatrix(3, 3, CV_64F, cameraMatrixVals);
+
+	cv::Mat rotation, translation;
+
+	// world coords: (0, 0, 0) at bottom center of tapes
+	// up and right are positive. y-axis is vertical.
+	cv::solvePnP(std::vector<cv::Point3f>({
+		cv::Point3f(-inchOuterTapesApart/2, inchTapesWidth*sin(radTapeOrientation), 0),
+		cv::Point3f(inchOuterTapesApart/2, inchTapesWidth*sin(radTapeOrientation), 0),
+		cv::Point3f(-inchTapeTopsApart/2, inchTapesHeight, 0),
+		cv::Point3f(inchTapeTopsApart/2, inchTapesHeight, 0),
+		cv::Point3f(-inchInnerTapesApart/2, inchTapesLength*cos(radTapeOrientation), 0),
+		cv::Point3f(inchInnerTapesApart/2, inchTapesLength*cos(radTapeOrientation), 0),
+		cv::Point3f(-inchTapeBottomsApart/2, 0, 0),
+		cv::Point3f(inchTapeBottomsApart/2, 0, 0)
+		 }),
+		  std::vector<cv::Point2f>({
+			left.left, right.right, left.top, right.top,
+			left.right, right.left, left.bottom, right.bottom
+		 }), cameraMatrix, {}, rotation, translation);
+
+	cv::Vec3d angles = getEulerAngles(rotation);
+
+	// x is right postive, y is forwards positive
+	double inchRobotX = translation.at<double>(0);
+	double inchRobotY = translation.at<double>(2); // should always be negative
+	double inchCalcTapesAboveGround = inchCameraHeight + translation.at<double>(1);
+
+	std::cout << "\npitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
+	<< "\ntrans: " << translation << 
+	"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround << '\n';
+
+	VisionData result;
+	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
+	// these might not be correct
+	result.robotAngle = atan2(inchRobotX, inchRobotY);
+	result.tapeAngle = angles[1]/180*M_PI;
+
+	return result;
 }
 
 void testSideways() {
@@ -207,10 +251,10 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 	grip::RedContourGrip finder;
 	finder.Process(image);
 	std::vector<std::vector<cv::Point> >* contours = finder.GetFilterContoursOutput();
-
 	
 	// these rectangles are vertical, the vision targets are at an angle... it doesn't matter
 	std::vector<cv::Rect> rects;
+	std::vector<ContourCorners> contourCorners;
 
 	const float minRectWidth = 10; //pixels 
 	const float minRectHeight= 10;
@@ -218,9 +262,9 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 		cv::Rect rect = cv::boundingRect(i);
 		if (rect.width >= minRectWidth && rect.height >= minRectHeight) {
 			rects.push_back(rect);
+			contourCorners.push_back(getContourCorners(i));
 		}
 	}
-
 
 	const float rectSizeDifferenceTolerance = 0.5; // fraction of width/height
 	const float rectYDifferenceTolerance = 1;
@@ -231,8 +275,11 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 	}
 	
 	// find rects that are close enough in size and distance
-	for (auto left : rects) {
-		for (auto right : rects) {
+	for (unsigned int i = 0; i < rects.size(); ++i) {
+		for (unsigned int j = 0; j < rects.size(); ++j) {
+			cv::Rect& left = rects[i];
+			cv::Rect& right = rects[j];
+
 			if (left != right &&
 				left.br().x < right.tl().x &&
 				left.tl().x + (left.width + right.width) / 2 * rectDistanceTolerance > right.br().x &&
@@ -241,13 +288,15 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
 
 				ProcessRectsResult result = processRects(left, right, image.cols, image.rows);
-				
-				if (result.success) {
-					if (isNanOrInf(result.calcs.distance) || isNanOrInf(result.calcs.robotAngle) || isNanOrInf(result.calcs.tapeAngle)) {
+				VisionData calcs = processPoints(contourCorners[i], contourCorners[j], image.cols, image.rows);
+				//VisionData calcs = result.calcs;
+
+				//if (result.success) {
+					if (isNanOrInf(calcs.distance) || isNanOrInf(calcs.robotAngle) || isNanOrInf(calcs.tapeAngle)) {
 						std::cout << "encountered NaN or Infinity" << std::endl;
 					}
-				else results.push_back({ result.calcs, left, right });
-				}
+					else results.push_back({ calcs, left, right });
+				//}
 			}
 		}
 	}
