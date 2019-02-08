@@ -117,6 +117,8 @@ namespace vision5708Main {
 		}
 	}
 	
+	cv::Mat image;
+	
 	int main(int argc, char** argv) {
 		/*
 		signal(SIGPIPE, SIG_IGN);
@@ -174,7 +176,7 @@ namespace vision5708Main {
 			streamer.writeFrame(currentFrame, lastResults);
 			}*/
 
-		cv::Mat image=cv::imread(path);
+		image=cv::imread(path);
 		cout << "image size: " << image.cols << 'x' << image.rows << endl;
 		std::vector<VisionTarget> te = doVision(image);
 		cout << "Testing Path: " << path << std::endl;

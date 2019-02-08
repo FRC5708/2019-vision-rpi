@@ -3,6 +3,7 @@
 #include <opencv2/core.hpp>
 
 struct VisionData {
+	double height;
 	bool isPort;
 	double distance;
 	

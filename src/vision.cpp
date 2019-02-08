@@ -93,8 +93,8 @@ constexpr double inchTapeHeightTolerance = 1000; // for testing
 constexpr double inchMinDistance = 1;
 
 // need precise values of these
-constexpr double radCameraPitch = (10/180)*M_PI; // above horizontal
-constexpr double inchCameraHeight = 9.5; // from ground
+constexpr double radCameraPitch = (30/180)*M_PI; // above horizontal
+constexpr double inchCameraHeight = 20;//9.5; // from ground
 
 
 // todo: use actual calibration data
@@ -169,6 +169,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	}
 	else return { false, {}};
 	
+	result.height = inchCalcTapesAboveGround;
 	result.distance = inchCenterDistance;
 	
 	// the part of the width angle left of centerDistance
@@ -182,8 +183,8 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 
 
 	
-	std::cout << "x:" << result.distance * sin(result.tapeAngle) << 
-	" y:" << result.distance * cos(result.tapeAngle) << 
+	std::cout << "x:" << result.distance * sin(result.robotAngle) <<
+	" y:" << result.distance * cos(result.robotAngle) <<
 	" height:" << inchCalcTapesAboveGround << '\n';
 	std::cout << "tapeAngle: " << result.tapeAngle << " robotAngle: " << result.robotAngle << '\n' << std::endl;
 
@@ -218,29 +219,46 @@ bool matContainsNan(cv::Mat& in) {
 	return false;
 }
 
+namespace vision5708Main { extern cv::Mat image; }
+
+void drawDebugPoints(cv::Mat points) {
+	std::cout << points << std::endl;
+	assert(points.type() == CV_32FC2);
+	
+	cv::Mat drawOn = vision5708Main::image.clone();
+	
+	for (unsigned int i = 0; i < points.rows; ++i) {
+		cv::Point2f point = points.at<cv::Point2f>(i);
+		cv::circle(drawOn, point, 2, cv::Scalar(0, 255, 0));
+	}
+	cv::namedWindow("projection");
+	imshow("projection", drawOn);
+	cv::waitKey(0);
+}
+
 ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 cv::Rect leftRect, cv::Rect rightRect,
  int pixImageWidth, int pixImageHeight) {
 	
-	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
+	const float pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
 	
-	double cameraMatrixVals[] {
-		pixFocalLength, 0, pixImageWidth/2,
-		0, pixFocalLength, pixImageHeight/2,
+	float cameraMatrixVals[] {
+		pixFocalLength, 0, ((float) pixImageWidth)/2,
+		0, pixFocalLength, ((float) pixImageHeight)/2,
 		0, 0, 1
 	};
-	cv::Mat cameraMatrix(3, 3, CV_64F, cameraMatrixVals);
+	cv::Mat cameraMatrix(3, 3, CV_32F, cameraMatrixVals);
 
 	// get initial guesses from the old code
 	ProcessRectsResult oldCodeResult = processRects(leftRect, rightRect, pixImageWidth, pixImageHeight);
 	
-	double transVals[] = {
-		-oldCodeResult.calcs.distance * sin(oldCodeResult.calcs.robotAngle),
-		-(inchHatchTapesAboveGround - inchCameraHeight),
-		-oldCodeResult.calcs.distance * cos(oldCodeResult.calcs.robotAngle)
+	float transVals[] = {
+		(float) (-oldCodeResult.calcs.distance * sin(oldCodeResult.calcs.robotAngle)),
+		(float) (oldCodeResult.calcs.height - inchCameraHeight),
+		-36//-oldCodeResult.calcs.distance * cos(oldCodeResult.calcs.robotAngle)
 	};
-	cv::Mat translation(1, 3, CV_64F, transVals, sizeof(transVals));
-	cv::Mat rotation(1, 3, CV_64F, cv::Scalar(0));
+	cv::Mat translation(1, 3, CV_32F, transVals, sizeof(transVals));
+	cv::Mat rotation(1, 3, CV_32F, cv::Scalar(0));
 	
 	// world coords: (0, 0, 0) at bottom center of tapes
 	// up and right are positive. y-axis is vertical.
@@ -258,8 +276,17 @@ cv::Rect leftRect, cv::Rect rightRect,
 		left.left, right.right, left.top, right.top,
 		left.right, right.left, left.bottom, right.bottom
 	};
-	cv::solvePnP(worldPoints, imagePoints, cameraMatrix, {}, rotation, translation, true);
-
+	
+	cv::Mat projPoints;
+	cv::projectPoints(worldPoints, rotation, translation, cameraMatrix, {}, projPoints);
+	drawDebugPoints(projPoints);
+	
+	cv::solvePnP(worldPoints, imagePoints, cameraMatrix, {}, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
+	
+	cv::projectPoints(worldPoints, rotation, translation, cameraMatrix, {}, projPoints);
+	drawDebugPoints(projPoints);
+	
+	
 	if (matContainsNan(translation) || matContainsNan (rotation)) {
 		std::cout << "solvePnP returned NaN!\n";
 		return { false, {}};
