@@ -23,7 +23,7 @@ Streamer::Streamer(int width, int height) {
 	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2 ! videoscale ! videoconvert ! queue ! ";
 #endif
 	
-	string recieveAddress = "10.126.58.95";
+	string recieveAddress = "10.57.8.41";
 	int target_bitrate = 3000000;
 	int port=1234;
 	

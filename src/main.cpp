@@ -102,8 +102,9 @@ namespace vision5708Main {
 				
 				string sendStr = toSend.str();
 				
-				if (send(fd, sendStr.c_str(), sendStr.length(), 0) < 0) {
+				if (send(fd, sendStr.c_str(), sendStr.length(), 0) < 0 && errno!=111) {
 					perror("Failed to send data");
+					cout << errno << endl;
 					setupSocket();
 				}
 				cout << sendStr;
@@ -138,17 +139,20 @@ namespace vision5708Main {
 		cv::VideoCapture camera;
 		
 		bool success = false;
-		for (int cameraId = 1; !success; ++cameraId) {
+		for (int i=0; !success; ++i) {
 			
-			if (cameraId > 5) cameraId = 0;
 			
 			#ifdef __linux__
-			success = camera.open("/dev/video" + std::to_string(cameraId));
+			success = camera.open("/dev/video1");
 			#else
-			success = camera.open(cameraId);
+			success = camera.open(1);
 			#endif
-			cout << "camera opening " << (success? ("succeeded @/dev/video" + cameraId) : "failed") << endl;
+			cout << "camera opening " << (success? ("succeeded @/dev/video1") : "failed") << endl;
 			if (!success) usleep(200000); // 200 ms
+		}
+		if(!success){
+			cout << "Camera opening unsuccessfull" << endl; 
+			return -1;
 		}
 		
 		camera.set(cv::CAP_PROP_FRAME_WIDTH, 853);
