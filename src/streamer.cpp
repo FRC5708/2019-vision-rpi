@@ -19,6 +19,26 @@
 using std::cout; using std::endl; using std::string;
 
 
+pid_t runCommandAsync(const char* cmd, int closeFd) {
+	pid_t pid = fork();
+	
+	if (pid == 0) {
+		// child
+		close(closeFd);
+		
+		const char *argv[] = {
+			"/bin/sh",
+			"-c",
+			cmd,
+			nullptr
+		};
+		
+		execv("/bin/sh", (char *const* )argv);
+		exit(127);
+	}
+	else return pid;
+}
+
 void Streamer::launchGStreamer(const char* recieveAddress) {
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
@@ -41,26 +61,17 @@ void Streamer::launchGStreamer(const char* recieveAddress) {
 	string strCommand = command.str();
 	cout << "> " << strCommand << endl;
 	
-	pid_t pid = fork();
-	
-	if (pid == 0) {
-		// child
-		close(servFd);
-		
-		const char *argv[] = {
-			"/bin/sh",
-			"-c",
-			strCommand.c_str(),
-			nullptr
-		};
-		
-		execv("/bin/sh", (char *const* )argv);
-		exit(127);
-	}
-	else gstreamerPID = pid;
+	gstreamerPID = runCommandAsync(strCommand.c_str(), servFd);
+}
+
+void Streamer::launchFFmpeg() {
+	ffmpegPID = runCommandAsync(
+		"ffmpeg -f v4l2 -pix_fmt yuyv422 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 -f v4l2 /dev/video3"
+	, servFd);
 }
 
 Streamer::Streamer(int width, int height) : width(width), height(height) {
+	launchFFmpeg();
 	std::thread([this]() {
 		
 		servFd = socket(AF_INET6, SOCK_STREAM, 0);
@@ -104,8 +115,12 @@ Streamer::Streamer(int width, int height) : width(width), height(height) {
 				if (kill(gstreamerPID, SIGTERM) == -1) {
 					perror("kill");
 				}
+				// kill and restart ffmpeg
+				kill(ffmpegPID, SIGTERM);
+				launchFFmpeg();
+
+				sleep(4); // wait for it to die
 			}
-			sleep(1);
 			
 			const char message[] = "Launching remote GStreamer...\n";
 			if (write(clientFd, message, sizeof(message)) == -1) {

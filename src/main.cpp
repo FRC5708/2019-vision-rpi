@@ -153,8 +153,6 @@ namespace vision5708Main {
 		}
 
 		signal(SIGPIPE, SIG_IGN);
-		system("ffmpeg -f v4l2 -pix_fmt yuyv422 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 &");
-		
 		cv::VideoCapture camera;
 		
 		bool success = false;
@@ -179,19 +177,18 @@ namespace vision5708Main {
 		
 		Streamer streamer(currentFrame.cols, currentFrame.rows);
 		
-		std::thread thread(&VisionThread);
+		//std::thread thread(&VisionThread);
 		
 		
 		while (true) {
 			auto frameReadStart = clock.now();
 			camera.grab();
-			cout << "grabbing frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
-			(clock.now() - frameReadStart).count() << " ms" << endl;
-			frameReadStart = clock.now();
+			//cout << "grabbing frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+			//(clock.now() - frameReadStart).count() << " ms" << endl;
+			//frameReadStart = clock.now();
 			camera.retrieve(currentFrame);
-			cout << "retrieving frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
-			(clock.now() - frameReadStart).count() << " ms" << endl;
-			
+			//cout << "retrieving frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+			//(clock.now() - frameReadStart).count() << " ms" << endl;
 			
 			currentFrameTime = clock.now();
 			waitMutex.unlock();
