@@ -18,16 +18,16 @@ class Streamer {
 	std::vector<VisionTarget> toDraw;
 	
 	void launchGStreamer(const char* recieveAddress);
-	void launchFFmpeg(); // for loopback video
 	
 	pid_t gstreamerPID = 0, ffmpegPID = 0;
 	int servFd;
 public:
 	int width, height;
 	
-	Streamer(int width, int height);
+	void start(int width, int height);
 	
 	void writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw);
 	
 	void run(); // run thread
+	void launchFFmpeg(); // for loopback video
 };

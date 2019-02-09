@@ -10,6 +10,7 @@
 
 #include <unistd.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -19,7 +20,7 @@
 using std::cout; using std::endl; using std::string;
 
 
-pid_t runCommandAsync(const char* cmd, int closeFd) {
+pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 	pid_t pid = fork();
 	
 	if (pid == 0) {
@@ -29,7 +30,7 @@ pid_t runCommandAsync(const char* cmd, int closeFd) {
 		const char *argv[] = {
 			"/bin/sh",
 			"-c",
-			cmd,
+			("exec " + cmd).c_str(),
 			nullptr
 		};
 		
@@ -61,7 +62,7 @@ void Streamer::launchGStreamer(const char* recieveAddress) {
 	string strCommand = command.str();
 	cout << "> " << strCommand << endl;
 	
-	gstreamerPID = runCommandAsync(strCommand.c_str(), servFd);
+	gstreamerPID = runCommandAsync(strCommand, servFd);
 }
 
 void Streamer::launchFFmpeg() {
@@ -70,8 +71,9 @@ void Streamer::launchFFmpeg() {
 	, servFd);
 }
 
-Streamer::Streamer(int width, int height) : width(width), height(height) {
-	launchFFmpeg();
+void Streamer::start(int width, int height) {
+	this->width = width; this->height = height;
+
 	std::thread([this]() {
 		
 		servFd = socket(AF_INET6, SOCK_STREAM, 0);
@@ -111,15 +113,11 @@ Streamer::Streamer(int width, int height) : width(width), height(height) {
 			}
 
 			if (gstreamerPID > 0) {
-				cout << "killing previous instance: " << gstreamerPID << endl;
+				cout << "killing previous instance: " << gstreamerPID << "   " << endl;
 				if (kill(gstreamerPID, SIGTERM) == -1) {
 					perror("kill");
 				}
-				// kill and restart ffmpeg
-				kill(ffmpegPID, SIGTERM);
-				launchFFmpeg();
-
-				sleep(4); // wait for it to die
+				waitpid(gstreamerPID, nullptr, 0);
 			}
 			
 			const char message[] = "Launching remote GStreamer...\n";

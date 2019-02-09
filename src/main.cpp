@@ -153,6 +153,10 @@ namespace vision5708Main {
 		}
 
 		signal(SIGPIPE, SIG_IGN);
+
+		Streamer streamer;
+		streamer.launchFFmpeg();
+
 		cv::VideoCapture camera;
 		
 		bool success = false;
@@ -175,7 +179,7 @@ namespace vision5708Main {
 		}
 		cout << "Got first frame. width=" << currentFrame.cols << ", height=" << currentFrame.rows << endl;
 		
-		Streamer streamer(currentFrame.cols, currentFrame.rows);
+		streamer.start(currentFrame.cols, currentFrame.rows);
 		
 		//std::thread thread(&VisionThread);
 		
