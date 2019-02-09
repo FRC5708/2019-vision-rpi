@@ -57,7 +57,7 @@ namespace vision5708Main {
 			sockaddr_in servAddr;
 			servAddr.sin_family = AF_INET;
 			servAddr.sin_addr.s_addr = INADDR_ANY;
-			servAddr.sin_port = htons(8081);
+			servAddr.sin_port = htons(5808);
 			
 			if (bind(fd, (sockaddr*) &servAddr, sizeof(servAddr)) < 0) {
 				perror("bind failed");
