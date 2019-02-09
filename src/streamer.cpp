@@ -51,7 +51,7 @@ void Streamer::launchGStreamer(const char* recieveAddress) {
 #endif
 	
 	int target_bitrate = 3000000;
-	int port=1234;
+	int port=5809;
 	
 	std::stringstream command;
 	command << gstreamCommand << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << target_bitrate <<
@@ -90,7 +90,7 @@ Streamer::Streamer(int width, int height) : width(width), height(height) {
 		
 		servAddr.sin6_family = AF_INET6;
 		servAddr.sin6_addr = in6addr_any;
-		servAddr.sin6_port = htons(8080);
+		servAddr.sin6_port = htons(5807); //Port that resets magic
 	
 		if (bind(servFd, (struct sockaddr*)&servAddr, sizeof(servAddr)) == -1) {
 			perror("bind");
