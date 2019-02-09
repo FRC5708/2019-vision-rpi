@@ -19,3 +19,5 @@ struct VisionTarget {
 
 void testSideways();
 std::vector<VisionTarget> doVision(cv::Mat image);
+
+extern bool isImageTesting;

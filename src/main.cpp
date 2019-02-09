@@ -1,6 +1,6 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
-#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 #include <iostream>
 #include <unistd.h>
@@ -12,19 +12,19 @@
 #include <mutex>
 #include <condition_variable>
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <fcntl.h>
 
 #include <signal.h>
 
 #include "vision.hpp"
-//#include "streamer.hpp"
-
-#include <fstream>
+#include "streamer.hpp"
 
 using std::cout; using std::endl; using std::string;
-char* path;
+
 namespace vision5708Main {
 
 	FILE* videoFifo;
@@ -39,66 +39,81 @@ namespace vision5708Main {
 	std::condition_variable condition;
 	
 	class RioComm {
-		int fd;
-		sockaddr_in clientAddr;
+		int fd = -1;
+		const char* client_name;
 		
 	public:
-		RioComm() {
+		void setupSocket() {
+			fd = -1;
 			
-			if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-				perror("socket failed");
+			// addrinfo is linked list
+			struct addrinfo* addrs;
+			
+			struct addrinfo hints;
+			memset(&hints, 0, sizeof(hints));
+			hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+			hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+			
+			int error = getaddrinfo(client_name, "5800", &hints, &addrs);
+			if (error != 0) {
+				fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
 			}
 			
-			int opt = 1;
-			if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-				perror("setsockopt failed");
+			for (struct addrinfo* rp = addrs; rp != nullptr; rp = rp->ai_next) {
+				
+				fd = socket(rp->ai_family, rp->ai_socktype,
+							 rp->ai_protocol);
+				if (fd == -1) continue;
+				
+				if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
+					break;
+				}
+				else {
+					close(fd);
+					fd = -1;
+					perror("connect failed");
+				}
 			}
-			
-			sockaddr_in servAddr;
-			servAddr.sin_family = AF_INET;
-			servAddr.sin_addr.s_addr = INADDR_ANY;
-			servAddr.sin_port = htons(8081);
-			
-			if (bind(fd, (sockaddr*) &servAddr, sizeof(servAddr)) < 0) {
-				perror("bind failed");
+			freeaddrinfo(addrs);
+			if (fd == -1) {
+				printf("could not resolve or connect to: %s\n", client_name);
+				return;
 			}
-			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
-			
-			if (listen(fd, 5) < 0) perror("listen failed");
-			
+		}
+		RioComm(const char* client_name) : client_name(client_name) {
+			setupSocket();
 		}
 		
 		void sendData(std::vector<VisionData> data, std::chrono::time_point<std::chrono::steady_clock> timeFrom) {
-			
 			std::stringstream toSend;
 			
-			toSend << "@" <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - timeFrom).count()
-			<< endl;
+			if (fd < 0) setupSocket();
 			
-			for (unsigned int i = 0; i != data.size(); ++i) {
-				char buf[200];
-				sprintf(buf, "#%d: isPort=%d distance=%f tapeAngle=%f robotAngle=%f\n",
-						i, data[i].isPort, data[i].distance, data[i].tapeAngle, data[i].robotAngle);
-				toSend << buf;
-			}
+			if (fd >= 0) {
 			
-			string sendStr = toSend.str();
-			
-			if (write(fd, sendStr.c_str(), sendStr.length()) == -1) {
-				// poll the connection
-				unsigned int clientAddrLen = sizeof(clientAddr);
-				int newfd = accept(fd, (sockaddr*) &clientAddr, &clientAddrLen);
+				for (unsigned int i = 0; i != data.size(); ++i) {
+					char buf[200];
+					sprintf(buf, "#%d: isPort=%d distance=%f tapeAngle=%f robotAngle=%f\n",
+							i, data[i].isPort, data[i].distance, data[i].tapeAngle, data[i].robotAngle);
+					toSend << buf;
+				}
+				toSend << "@" <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - timeFrom).count()
+				<< endl;
 				
-				if (newfd < 0) perror("Rio not connected");
-				else fd = newfd;
+				string sendStr = toSend.str();
+				
+				if (send(fd, sendStr.c_str(), sendStr.length(), 0) < 0) {
+					perror("Failed to send data");
+					setupSocket();
+				}
+				cout << sendStr;
 			}
-			//cout << sendStr;
 		}
 	};
 	
 	void VisionThread() {
-		RioComm rioComm;
+		RioComm rioComm=RioComm("10.57.8.2");
 		
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
@@ -117,30 +132,42 @@ namespace vision5708Main {
 		}
 	}
 	
-	cv::Mat image;
-	
 	int main(int argc, char** argv) {
-		/*
+		if (argc > 1) {
+			isImageTesting = true;
+			
+			cv::Mat image=cv::imread(argv[1]);
+			cout << "image size: " << image.cols << 'x' << image.rows << endl;
+			std::vector<VisionTarget> te = doVision(image);
+			cout << "Testing Path: " << argv[1] << std::endl;
+			for(auto &i:te){
+				auto calc=i.calcs;
+				cout << "Portland: " << calc.isPort << " Distance: " << calc.distance << " tape: " << calc.tapeAngle << " robot: " << calc.robotAngle << std::endl;
+				cout << "L: " << i.left.x << ":" << i.left.y << " " << i.left.width << "," << i.left.height
+				 << " R: " << i.right.x << ":" << i.right.y << " " << i.right.width << "," << i.right.height << std::endl;
+			}
+		return 0;
+		}
+
 		signal(SIGPIPE, SIG_IGN);
+		system("ffmpeg -f v4l2 -pix_fmt yuyv422 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2 &");
 		
 		cv::VideoCapture camera;
 		
 		bool success = false;
-		for (int cameraId = 0; !success; ++cameraId) {
+		for (int cameraId = 1; !success; ++cameraId) {
 			
 			if (cameraId > 5) cameraId = 0;
 			
 			#ifdef __linux__
 			success = camera.open("/dev/video" + std::to_string(cameraId));
+			cout << "camera opening " << (success? ("succeeded @/dev/video" + std::to_string(cameraId)) : "failed") << endl;
 			#else
-			success = camera.open(cameraId);
-			#endif
+			success = camera.open(cameraId - 1);
 			cout << "camera opening " << (success? "succeeded" : "failed") << endl;
+			#endif
 			if (!success) usleep(200000); // 200 ms
 		}
-		
-		camera.set(cv::CAP_PROP_FRAME_WIDTH, 853);
-		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
 		
 		while (!camera.read(currentFrame)) {
 			usleep(5000);
@@ -148,56 +175,29 @@ namespace vision5708Main {
 		cout << "Got first frame. width=" << currentFrame.cols << ", height=" << currentFrame.rows << endl;
 		
 		Streamer streamer(currentFrame.cols, currentFrame.rows);
-		cout << "Initialized video streamer" << endl;
 		
-		//std::thread thread(&VisionThread);
+		std::thread thread(&VisionThread);
 		
 		
 		while (true) {
 			auto frameReadStart = clock.now();
-			while (!camera.read(currentFrame)) {
-				usleep(5000);
-			}
-			cout << "reading frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+			camera.grab();
+			cout << "grabbing frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
 			(clock.now() - frameReadStart).count() << " ms" << endl;
-			/*
-			 frameCount++;
-			 cout << "encoding frame. Instant FPS: " <<
-			 1.0/std::chrono::duration<double>(clock.now() - lastFrame).count()
-			 << "; Average FPS: " <<
-			 frameCount * (1.0/std::chrono::duration<double>(clock.now() - beginning).count()) << endl;
-			 
-			 lastFrame = clock.now();
-			 *//*
+			frameReadStart = clock.now();
+			camera.retrieve(currentFrame);
+			cout << "retrieving frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+			(clock.now() - frameReadStart).count() << " ms" << endl;
+			
+			
 			currentFrameTime = clock.now();
 			waitMutex.unlock();
 			condition.notify_one();
 			
 			streamer.writeFrame(currentFrame, lastResults);
-			}*/
-
-		image=cv::imread(path);
-		cout << "image size: " << image.cols << 'x' << image.rows << endl;
-		std::vector<VisionTarget> te = doVision(image);
-		cout << "Testing Path: " << path << std::endl;
-		for(auto &i:te){
-			auto calc=i.calcs;
-			cout << "Portland: " << calc.isPort << " Distance: " << calc.distance << " tape: " << calc.tapeAngle << " robot: " << calc.robotAngle << std::endl;
-			cout << "L: " << i.left.x << ":" << i.left.y << " " << i.left.width << "," << i.left.height
-			 << " R: " << i.right.x << ":" << i.right.y << " " << i.right.width << "," << i.right.height << std::endl;
 		}
-		return 0;
 	}
-
 }
-
 int main(int argc, char** argv) {
-	//testSideways();
-	//return 0;
-	
-	if(argc < 2){
-		return -1;
-	}
-	path=argv[1];
 	return vision5708Main::main(argc, argv);
 }

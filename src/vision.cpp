@@ -219,13 +219,13 @@ bool matContainsNan(cv::Mat& in) {
 	return false;
 }
 
-namespace vision5708Main { extern cv::Mat image; }
-
+bool isImageTesting = false;
+cv::Mat* debugDrawImage;
 void drawDebugPoints(cv::Mat points) {
 	std::cout << points << std::endl;
 	assert(points.type() == CV_32FC2);
 	
-	cv::Mat drawOn = vision5708Main::image.clone();
+	cv::Mat drawOn = debugDrawImage->clone();
 	
 	for (int i = 0; i < points.rows; ++i) {
 		cv::Point2f point = points.at<cv::Point2f>(i);
@@ -323,6 +323,8 @@ void testSideways() {
 }
 
 std::vector<VisionTarget> doVision(cv::Mat image) {
+	if (isImageTesting) debugDrawImage = &image;
+
 	std::vector<VisionTarget> results;
 
 	grip::RedContourGrip finder;
