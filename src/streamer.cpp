@@ -22,13 +22,6 @@ using std::cout; using std::endl; using std::string;
 void Streamer::launchGStreamer(const char* recieveAddress) {
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
-	if (gstreamerPID > 0) {
-		cout << "killing previous instance: " << gstreamerPID << endl;
-		if (kill(gstreamerPID, SIGTERM) == -1) {
-			perror("kill");
-		}
-	}
-	
 #ifdef __linux__
 	string codec = "omxh264enc";
 	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2";
@@ -105,15 +98,24 @@ Streamer::Streamer(int width, int height) : width(width), height(height) {
 				perror("accept");
 				continue;
 			}
+
+			if (gstreamerPID > 0) {
+				cout << "killing previous instance: " << gstreamerPID << endl;
+				if (kill(gstreamerPID, SIGTERM) == -1) {
+					perror("kill");
+				}
+			}
+			sleep(1);
 			
 			const char message[] = "Launching remote GStreamer...\n";
 			if (write(clientFd, message, sizeof(message)) == -1) {
 				perror("write");
 			}
+
 			if (close(clientFd) == -1) perror("close");
-			
+
 			// wait for client's gstreamer to initialize
-			sleep(1);
+			sleep(2);
 
 			char strAddr[INET6_ADDRSTRLEN];
 			inet_ntop(AF_INET6, &(clientAddr.sin6_addr), strAddr, sizeof(strAddr));

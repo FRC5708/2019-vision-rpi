@@ -222,6 +222,7 @@ bool matContainsNan(cv::Mat& in) {
 bool isImageTesting = false;
 cv::Mat* debugDrawImage;
 void drawDebugPoints(cv::Mat points) {
+	if (!isImageTesting) return;
 	std::cout << points << std::endl;
 	assert(points.type() == CV_32FC2);
 	
@@ -242,8 +243,9 @@ void drawDebugPoints(cv::Mat points) {
 ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
  int pixImageWidth, int pixImageHeight) {
 	
-	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
+	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2)); // pixels. Estimated from the camera's FOV spec.
 	
+
 	double cameraMatrixVals[] {
 		pixFocalLength, 0, ((double) pixImageWidth)/2,
 		0, pixFocalLength, ((double) pixImageHeight)/2,
@@ -280,7 +282,6 @@ ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 		return { false, {}};
 	} 
 
-	constexpr double pixMaxError = 15;
 	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rotation, translation, cameraMatrix, cv::Mat());
 
 	cv::Vec3d angles = getEulerAngles(rotation);
@@ -308,7 +309,13 @@ ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 		std::cout << "encountered NaN or Infinity" << std::endl;
 		return { false, {} };
 	}
-	if (pixError > pixMaxError) return { false, {}};
+
+	constexpr double pixMaxError = 15;
+	constexpr double inchMinDistance = 10;
+	if (pixError > pixMaxError ||
+	result.distance < inchMinDistance) {
+		 return { false, {}};
+	}
 
 	return { true, result };
 }
@@ -365,7 +372,7 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 			    abs(left.width - right.width) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.height - right.height) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
-
+				try {
 				// keep around old output for debugging
 				processRects(left, right, image.cols, image.rows);
 
@@ -374,6 +381,11 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 
 				if (result.success) {
 					results.push_back({ result.calcs, left, right });
+				}
+				}
+				catch (const cv::Exception e) {
+					if (isImageTesting) throw;
+					std::cerr << e.msg << std::endl;
 				}
 			}
 		}

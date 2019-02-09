@@ -120,8 +120,11 @@ namespace vision5708Main {
 			lastResults = doVision(currentFrame);
 			
 			
-			std::vector<VisionData> calcs(lastResults.size());
-			for (VisionTarget i : lastResults) calcs.push_back(i.calcs);
+			std::vector<VisionData> calcs;
+			calcs.reserve(lastResults.size());
+			for (auto i : lastResults) {
+				calcs.push_back(i.calcs);
+			} 
 			
 			rioComm.sendData(calcs, lastFrameTime);
 			
