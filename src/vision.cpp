@@ -93,8 +93,8 @@ constexpr double inchTapeHeightTolerance = 1000; // for testing
 constexpr double inchMinDistance = 1;
 
 // need precise values of these
-constexpr double radCameraPitch = (10/180)*M_PI; // above horizontal
-constexpr double inchCameraHeight = 9.5; // from ground
+constexpr double radCameraPitch = (30/180)*M_PI; // above horizontal
+constexpr double inchCameraHeight = 20;//9.5; // from ground
 
 
 // todo: use actual calibration data
@@ -169,6 +169,7 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 	}
 	else return { false, {}};
 	
+	result.height = inchCalcTapesAboveGround;
 	result.distance = inchCenterDistance;
 	
 	// the part of the width angle left of centerDistance
@@ -182,8 +183,8 @@ ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth
 
 
 	
-	std::cout << "x:" << result.distance * sin(result.tapeAngle) << 
-	" y:" << result.distance * cos(result.tapeAngle) << 
+	std::cout << "x:" << result.distance * sin(result.robotAngle) <<
+	" y:" << result.distance * cos(result.robotAngle) <<
 	" height:" << inchCalcTapesAboveGround << '\n';
 	std::cout << "tapeAngle: " << result.tapeAngle << " robotAngle: " << result.robotAngle << '\n' << std::endl;
 
@@ -218,30 +219,40 @@ bool matContainsNan(cv::Mat& in) {
 	return false;
 }
 
+bool isImageTesting = false;
+cv::Mat* debugDrawImage;
+void drawDebugPoints(cv::Mat points) {
+	if (!isImageTesting) return;
+	std::cout << points << std::endl;
+	assert(points.type() == CV_32FC2);
+	
+	cv::Mat drawOn = debugDrawImage->clone();
+	
+	for (int i = 0; i < points.rows; ++i) {
+		cv::Point2f point = points.at<cv::Point2f>(i);
+		cv::circle(drawOn, point, 2, cv::Scalar(0, 255, 0));
+	}
+	/*cv::namedWindow("projection");
+	imshow("projection", drawOn);
+	cv::waitKey(0);*/
+	static int imgNum = 0;
+	++imgNum;
+	cv::imwrite("./debugimg_" + std::to_string(imgNum) + ".png", drawOn);
+}
+
 ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
-cv::Rect leftRect, cv::Rect rightRect,
  int pixImageWidth, int pixImageHeight) {
 	
-	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
+	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2)); // pixels. Estimated from the camera's FOV spec.
 	
+
 	double cameraMatrixVals[] {
-		pixFocalLength, 0, pixImageWidth/2,
-		0, pixFocalLength, pixImageHeight/2,
+		pixFocalLength, 0, ((double) pixImageWidth)/2,
+		0, pixFocalLength, ((double) pixImageHeight)/2,
 		0, 0, 1
 	};
 	cv::Mat cameraMatrix(3, 3, CV_64F, cameraMatrixVals);
 
-	// get initial guesses from the old code
-	ProcessRectsResult oldCodeResult = processRects(leftRect, rightRect, pixImageWidth, pixImageHeight);
-	
-	double transVals[] = {
-		-oldCodeResult.calcs.distance * sin(oldCodeResult.calcs.robotAngle),
-		-(inchHatchTapesAboveGround - inchCameraHeight),
-		-oldCodeResult.calcs.distance * cos(oldCodeResult.calcs.robotAngle)
-	};
-	cv::Mat translation(1, 3, CV_64F, transVals, sizeof(transVals));
-	cv::Mat rotation(1, 3, CV_64F, cv::Scalar(0));
-	
 	// world coords: (0, 0, 0) at bottom center of tapes
 	// up and right are positive. y-axis is vertical.
 	std::vector<cv::Point3f> worldPoints = {
@@ -258,34 +269,53 @@ cv::Rect leftRect, cv::Rect rightRect,
 		left.left, right.right, left.top, right.top,
 		left.right, right.left, left.bottom, right.bottom
 	};
-	cv::solvePnP(worldPoints, imagePoints, cameraMatrix, {}, rotation, translation, true);
-
+	
+	cv::Mat rotation, translation;
+	cv::solvePnP(worldPoints, imagePoints, cameraMatrix, {}, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
+	
+	cv::Mat projPoints;
+	cv::projectPoints(worldPoints, rotation, translation, cameraMatrix, {}, projPoints);
+	drawDebugPoints(projPoints);
+	
 	if (matContainsNan(translation) || matContainsNan (rotation)) {
 		std::cout << "solvePnP returned NaN!\n";
 		return { false, {}};
 	} 
 
-	constexpr double pixMaxError = 10;
 	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rotation, translation, cameraMatrix, cv::Mat());
 
 	cv::Vec3d angles = getEulerAngles(rotation);
+	double radPitch = angles[0]/180*M_PI;
 
 	// x is right postive, y is forwards positive
 	double inchRobotX = translation.at<double>(0);
-	double inchRobotY = translation.at<double>(2); // should always be negative
-	double inchCalcTapesAboveGround = inchCameraHeight + translation.at<double>(1);
+	double inchRobotY = translation.at<double>(2) * cos(radPitch); // should always be negative
+	double inchCalcTapesAboveGround = //inchCameraHeight - (
+	translation.at<double>(1) * cos(radPitch) + translation.at<double>(2) * sin(-radPitch);
 
 	std::cout << "\nerror:" << pixError << " pitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
 	<< "\ntrans: " << translation << 
 	"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround << '\n';
 
-	if (pixError > pixMaxError) return { false, {}};
-
 	VisionData result;
 	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
-	// these might not be correct
-	result.robotAngle = atan2(inchRobotX, inchRobotY);
+
+	result.robotAngle = atan2(-inchRobotX, -inchRobotY);
+
+	// not correct if camera is angled
 	result.tapeAngle = angles[1]/180*M_PI;
+
+	if (isNanOrInf(result.distance) || isNanOrInf(result.robotAngle) || isNanOrInf(result.tapeAngle)) {
+		std::cout << "encountered NaN or Infinity" << std::endl;
+		return { false, {} };
+	}
+
+	constexpr double pixMaxError = 15;
+	constexpr double inchMinDistance = 10;
+	if (pixError > pixMaxError ||
+	result.distance < inchMinDistance) {
+		 return { false, {}};
+	}
 
 	return { true, result };
 }
@@ -300,6 +330,8 @@ void testSideways() {
 }
 
 std::vector<VisionTarget> doVision(cv::Mat image) {
+	if (isImageTesting) debugDrawImage = &image;
+
 	std::vector<VisionTarget> results;
 
 	grip::RedContourGrip finder;
@@ -340,18 +372,21 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 			    abs(left.width - right.width) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.height - right.height) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
+				try {
+				// keep around old output for debugging
+				processRects(left, right, image.cols, image.rows);
 
-				//ProcessRectsResult result = processRects(left, right, image.cols, image.rows);
-				ProcessRectsResult result = processPoints(contourCorners[i], contourCorners[j],
-				 left, right, image.cols, image.rows);
-				VisionData calcs = result.calcs;
+				ProcessRectsResult result = processPoints(
+					contourCorners[i], contourCorners[j], image.cols, image.rows);
 
-				//if (result.success) {
-					if (isNanOrInf(calcs.distance) || isNanOrInf(calcs.robotAngle) || isNanOrInf(calcs.tapeAngle)) {
-						std::cout << "encountered NaN or Infinity" << std::endl;
-					}
-					else results.push_back({ calcs, left, right });
-				//}
+				if (result.success) {
+					results.push_back({ result.calcs, left, right });
+				}
+				}
+				catch (const cv::Exception e) {
+					if (isImageTesting) throw;
+					std::cerr << e.msg << std::endl;
+				}
 			}
 		}
 	}

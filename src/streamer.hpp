@@ -16,7 +16,14 @@ class Streamer {
 	
 	cv::Mat image;
 	std::vector<VisionTarget> toDraw;
+	
+	void launchGStreamer(const char* recieveAddress);
+	
+	pid_t gstreamerPID = 0;
+	int servFd;
 public:
+	int width, height;
+	
 	Streamer(int width, int height);
 	
 	void writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw);

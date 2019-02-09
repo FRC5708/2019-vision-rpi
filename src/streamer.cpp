@@ -1,6 +1,5 @@
 #include "streamer.hpp"
 
-#include <unistd.h>
 #include <string>
 #include <iostream>
 #include <fcntl.h>
@@ -9,65 +8,127 @@
 
 #include <opencv2/imgproc.hpp>
 
+#include <unistd.h>
+#include <signal.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 using std::cout; using std::endl; using std::string;
 
 
-Streamer::Streamer(int width, int height) {
-	
-	string filesDir = string(getenv("HOME")) + "/vision_files";
-	string streamPath = filesDir + "/video_stream";
-	
-	system(("mkfifo " + streamPath).c_str());
-	
+void Streamer::launchGStreamer(const char* recieveAddress) {
+	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
 #ifdef __linux__
-	string codec = "h264_omx";
-	string ffmpegCommand = "ffmpeg";
+	string codec = "omxh264enc";
+	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2";
 #elif defined __APPLE__
-	string codec = "h264_videotoolbox";
-	string ffmpegCommand = "/usr/local/bin/ffmpeg";
+	string codec = "omxh264enc";
+	string gstreamCommand = "/usr/local/bin/gst-launch-1.0 autovideosrc";
 #endif
 	
-	string recieveAddress = "10.57.8.83";
+	int target_bitrate = 3000000;
+	int port=1234;
 	
 	std::stringstream command;
-	command << ffmpegCommand << " -re -f rawvideo -pixel_format bgr24 -video_size "
-	<< width << "x" << height
-	<< " -r 60 -i " << streamPath << " -c:v " << codec
-	<< " -b:v 3000k -sdp_file " << filesDir << "/stream.sdp"
-	<< " -f rtp rtp://" << recieveAddress << ":5004 &";
+	command << gstreamCommand << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << target_bitrate <<
+	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
+	<< " host=" << recieveAddress << " port=" << port;
+
+	string strCommand = command.str();
+	cout << "> " << strCommand << endl;
 	
-	cout << command.str() << endl;
-	system(command.str().c_str());
-	//system("ffmpeg -re -f rawvideo -pixel_format bgr24 -video_size 1280x720 -i ~/video_stream.bgr24 -c:v h264_videotoolbox -b:v 3000k -sdp_file ~/test.sdp -f rtp rtp://localhost:5004/  &");
+	pid_t pid = fork();
 	
-	
-	videoFifo = fopen(streamPath.c_str(), "a");
-#ifdef __linux__
-	if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, width*height*3) < 0) {
-		if (errno == EPERM) {
-			FILE* maxSizeFile = fopen("/proc/sys/fs/pipe-max-size", "r");
-			
-			char buf[100];
-			fread(buf, sizeof(buf), 1, maxSizeFile);
-			int maxSize = atoi(buf);
-			
-			cout << "setting pipe size to " << maxSize << endl;
-			if (fcntl(fileno(videoFifo), F_SETPIPE_SZ, maxSize) < 0) {
-				perror("could not set pipe size to maximum value");
-			}
-		}
-		else perror("could not set pipe size");
+	if (pid == 0) {
+		// child
+		close(servFd);
+		
+		const char *argv[] = {
+			"/bin/sh",
+			"-c",
+			strCommand.c_str(),
+			nullptr
+		};
+		
+		execv("/bin/sh", (char *const* )argv);
+		exit(127);
 	}
-#endif
-	// play stream with:
-	// ffplay -protocol_whitelist "file,rtp,udp" -fflags nobuffer -flags low_delay -framedrop -strict -experimental -analyzeduration 1 -sync ext -i path_to_sdp_file
-	// It needs to be started BEFORE this program for stupid reasons
-	
-	std::thread streamerThread([this]() {
-		run();
-	});
+	else gstreamerPID = pid;
 }
+
+Streamer::Streamer(int width, int height) : width(width), height(height) {
+	std::thread([this]() {
+		
+		servFd = socket(AF_INET6, SOCK_STREAM, 0);
+		if (servFd < 0) {
+			perror("socket");
+			return;
+		}
+		
+		int flag = 1;
+		if (setsockopt(servFd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) == -1) {
+			perror("setsockopt");
+		}
+		
+		struct sockaddr_in6 servAddr;
+		memset(&servAddr, 0, sizeof(servAddr));
+		
+		servAddr.sin6_family = AF_INET6;
+		servAddr.sin6_addr = in6addr_any;
+		servAddr.sin6_port = htons(8080);
+	
+		if (bind(servFd, (struct sockaddr*)&servAddr, sizeof(servAddr)) == -1) {
+			perror("bind");
+			return;
+		}
+		if (listen(servFd, 10)== -1) {
+			perror("listen");
+			return;
+		}
+		
+		while (true) {
+			struct sockaddr_in6 clientAddr;
+			socklen_t clientAddrLen = sizeof(clientAddr);
+			int clientFd = accept(servFd, (struct sockaddr*) &clientAddr, &clientAddrLen);
+			if (clientFd < 0) {
+				perror("accept");
+				continue;
+			}
+
+			if (gstreamerPID > 0) {
+				cout << "killing previous instance: " << gstreamerPID << endl;
+				if (kill(gstreamerPID, SIGTERM) == -1) {
+					perror("kill");
+				}
+			}
+			sleep(1);
+			
+			const char message[] = "Launching remote GStreamer...\n";
+			if (write(clientFd, message, sizeof(message)) == -1) {
+				perror("write");
+			}
+
+			if (close(clientFd) == -1) perror("close");
+
+			// wait for client's gstreamer to initialize
+			sleep(2);
+
+			char strAddr[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, &(clientAddr.sin6_addr), strAddr, sizeof(strAddr));
+			launchGStreamer(strAddr);			
+		}
+	}).detach();
+}
+
+
+
+
+
+
 void Streamer::_writeFrame() {
 	std::chrono::steady_clock clock;
 	auto drawStartTime = clock.now();

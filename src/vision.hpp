@@ -3,6 +3,7 @@
 #include <opencv2/core.hpp>
 
 struct VisionData {
+	double height;
 	bool isPort;
 	double distance;
 	
@@ -18,3 +19,5 @@ struct VisionTarget {
 
 void testSideways();
 std::vector<VisionTarget> doVision(cv::Mat image);
+
+extern bool isImageTesting;
