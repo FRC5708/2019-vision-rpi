@@ -21,3 +21,4 @@ void testSideways();
 std::vector<VisionTarget> doVision(cv::Mat image);
 
 extern bool isImageTesting;
+extern bool verboseMode;

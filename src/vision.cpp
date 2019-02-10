@@ -26,6 +26,9 @@ namespace cv {
 	}
 }
 
+bool isImageTesting = false;
+bool verboseMode = false;
+
 
 bool isNanOrInf(double in) {
 	return isnan(in) || isinf(in);
@@ -219,7 +222,7 @@ bool matContainsNan(cv::Mat& in) {
 	return false;
 }
 
-bool isImageTesting = false;
+
 cv::Mat* debugDrawImage;
 void drawDebugPoints(cv::Mat points) {
 	if (!isImageTesting) return;
@@ -293,9 +296,11 @@ ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 	double inchCalcTapesAboveGround = //inchCameraHeight - (
 	translation.at<double>(1) * cos(radPitch) + translation.at<double>(2) * sin(-radPitch);
 
-	std::cout << "\nerror:" << pixError << " pitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
-	<< "\ntrans: " << translation << 
-	"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround << '\n';
+	if (verboseMode) {
+		std::cout << "\nerror:" << pixError << " pitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
+		<< "\ntrans: " << translation << 
+		"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround << '\n';
+	}
 
 	VisionData result;
 	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
@@ -310,10 +315,19 @@ ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 		return { false, {} };
 	}
 
-	constexpr double pixMaxError = 15;
+	double pixMaxError = std::max(3, 
+		((left.bottom.y - left.top.y) + (right.bottom.y - right.top.y))/2 / 6);
+	constexpr double radMaxCameraPitch = 40.0/180.0*M_PI;
+	constexpr double degMaxRoll = 20; // degrees
 	constexpr double inchMinDistance = 10;
+	
+	double radReferencePitch = fmod((radPitch + 2*M_PI), M_PI); // make positive
+	if (radReferencePitch > M_PI_2) radReferencePitch = M_PI - radReferencePitch;
+
 	if (pixError > pixMaxError ||
-	result.distance < inchMinDistance) {
+	result.distance < inchMinDistance ||
+	radReferencePitch > radMaxCameraPitch || 
+	fabs(angles[2]) > degMaxRoll) {
 		 return { false, {}};
 	}
 
@@ -353,10 +367,10 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 	}
 
 	const float rectSizeDifferenceTolerance = 0.5; // fraction of width/height
-	const float rectYDifferenceTolerance = 1;
+	const float rectYDifferenceTolerance = 0.5;
 	const float rectDistanceTolerance = 10; // multiplier of the width of one rectangle, that the whole vision target can be
 
-	for (auto rect : rects) {
+	if (verboseMode) for (auto rect : rects) {
 		std::cout << "found rect: x:" << rect.x << ",y:" << rect.y << ",w:" << rect.width << ",h:" << rect.height << std::endl;
 	}
 	
@@ -374,7 +388,7 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
 				try {
 				// keep around old output for debugging
-				processRects(left, right, image.cols, image.rows);
+				if (verboseMode) processRects(left, right, image.cols, image.rows);
 
 				ProcessRectsResult result = processPoints(
 					contourCorners[i], contourCorners[j], image.cols, image.rows);

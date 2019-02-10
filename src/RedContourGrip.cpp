@@ -10,11 +10,13 @@ RedContourGrip::RedContourGrip() {
 void RedContourGrip::Process(cv::Mat& source0){
 	//Step RGB_Threshold0:
 	//input
-	cv::Mat rgbThresholdInput = source0;
+	/*cv::Mat rgbThresholdInput = source0;
 	double rgbThresholdRed[] = {181.16007194244605, 255.0};
 	double rgbThresholdGreen[] = {0.0, 255.0};
 	double rgbThresholdBlue[] = {0.0, 255.0};
 	rgbThreshold(rgbThresholdInput, rgbThresholdRed, rgbThresholdGreen, rgbThresholdBlue, this->rgbThresholdOutput);
+	*/
+	myThreshold(source0, this->rgbThresholdOutput);
 	//Step Find_Contours0:
 	//input
 	cv::Mat findContoursInput = rgbThresholdOutput;
@@ -70,6 +72,18 @@ std::vector<std::vector<cv::Point> >* RedContourGrip::GetFilterContoursOutput(){
 	void RedContourGrip::rgbThreshold(cv::Mat &input, double red[], double green[], double blue[], cv::Mat &output) {
 		cv::cvtColor(input, output, cv::COLOR_BGR2RGB);
 		cv::inRange(output, cv::Scalar(red[0], green[0], blue[0]), cv::Scalar(red[1], green[1], blue[1]), output);
+	}
+
+	void myThreshold(cv::Mat& input, cv::Mat& output) {
+		assert(input.type() == CV_8UC3);
+		output.create(input.rows, input.cols, CV_8U);
+
+		for (int i = 0; i < input.total(); ++i) {
+			output.data[i] = (
+				input.data[i*3 + 2] > 190 || // is bright
+				(input.data[i*3] < 200 && input.data[i*3 + 1] < 200 && input.data[i] > 140) // is red
+			) * 255;
+		}
 	}
 
 	/**

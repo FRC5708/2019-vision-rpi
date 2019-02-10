@@ -138,7 +138,7 @@ namespace vision5708Main {
 	
 	int main(int argc, char** argv) {
 		if (argc > 1) {
-			isImageTesting = true;
+			isImageTesting = true; verboseMode = true;
 			
 			cv::Mat image=cv::imread(argv[1]);
 			cout << "image size: " << image.cols << 'x' << image.rows << endl;
