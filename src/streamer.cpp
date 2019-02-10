@@ -117,7 +117,7 @@ Streamer::Streamer(int width, int height) : width(width), height(height) {
 				}
 				// kill and restart ffmpeg
 				kill(ffmpegPID, SIGTERM);
-				launchFFmpeg();
+				launchFFmpeg(); 
 
 				sleep(4); // wait for it to die
 			}
