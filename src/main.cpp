@@ -54,7 +54,7 @@ namespace vision5708Main {
 			hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
 			hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
 			
-			int error = getaddrinfo(client_name, "5800", &hints, &addrs);
+			int error = getaddrinfo(client_name, "5808", &hints, &addrs);
 			if (error != 0) {
 				fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
 			}
