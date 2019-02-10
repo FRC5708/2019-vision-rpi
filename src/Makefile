@@ -1,5 +1,5 @@
 
-CXXFLAGS=-g -Wall --std=c++11 `pkg-config --cflags opencv`
+CXXFLAGS=-g -Wall -Wno-psabi --std=c++11 `pkg-config --cflags opencv`
 
 ODIR=obj
 

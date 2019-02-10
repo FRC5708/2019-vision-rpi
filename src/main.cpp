@@ -181,7 +181,7 @@ namespace vision5708Main {
 		
 		streamer.start(currentFrame.cols, currentFrame.rows);
 		
-		//std::thread thread(&VisionThread);
+		std::thread thread(&VisionThread);
 		
 		
 		while (true) {

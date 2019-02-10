@@ -21,6 +21,8 @@ using std::cout; using std::endl; using std::string;
 
 
 pid_t runCommandAsync(const std::string& cmd, int closeFd) {
+	string execCmd = ("exec " + cmd);
+	cout << "> " << execCmd << endl;
 	pid_t pid = fork();
 	
 	if (pid == 0) {
@@ -30,7 +32,7 @@ pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 		const char *argv[] = {
 			"/bin/sh",
 			"-c",
-			("exec " + cmd).c_str(),
+			execCmd.c_str(),
 			nullptr
 		};
 		
@@ -60,7 +62,6 @@ void Streamer::launchGStreamer(const char* recieveAddress) {
 	<< " host=" << recieveAddress << " port=" << port;
 
 	string strCommand = command.str();
-	cout << "> " << strCommand << endl;
 	
 	gstreamerPID = runCommandAsync(strCommand, servFd);
 }
