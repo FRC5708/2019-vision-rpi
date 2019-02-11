@@ -7,6 +7,22 @@ RedContourGrip::RedContourGrip() {
 /**
 * Runs an iteration of the pipeline and updates outputs.
 */
+
+void myThreshold(cv::Mat& input, cv::Mat& output) {
+	assert(input.type() == CV_8UC3);
+	output.create(input.rows, input.cols, CV_8U);
+
+	#pragma omp parallel for
+	for (unsigned int i = 0; i < input.total(); ++i) {
+		cv::Vec3b px = input.at<cv::Vec3b>(i);
+
+		output.data[i] = (
+			px[2] > 200 || // is bright
+			(px[2] > 130 && px[2] - 30 > px[0] && px[2] - 30 > px[1]) // is red
+		) * 255;
+	}
+}
+
 void RedContourGrip::Process(cv::Mat& source0){
 	//Step RGB_Threshold0:
 	//input
@@ -25,13 +41,13 @@ void RedContourGrip::Process(cv::Mat& source0){
 	//Step Filter_Contours0:
 	//input
 	std::vector<std::vector<cv::Point> > filterContoursContours = findContoursOutput;
-	double filterContoursMinArea = 125.0;  // default Double
+	double filterContoursMinArea = 100;  // default Double
 	double filterContoursMinPerimeter = 0;  // default Double
-	double filterContoursMinWidth = 15.0;  // default Double
+	double filterContoursMinWidth = 5.0;  // default Double
 	double filterContoursMaxWidth = 1000;  // default Double
 	double filterContoursMinHeight = 15.0;  // default Double
 	double filterContoursMaxHeight = 1000;  // default Double
-	double filterContoursSolidity[] = {0, 100};
+	double filterContoursSolidity[] = {70, 100};
 	double filterContoursMaxVertices = 1000000;  // default Double
 	double filterContoursMinVertices = 0;  // default Double
 	double filterContoursMinRatio = 0;  // default Double
@@ -72,18 +88,6 @@ std::vector<std::vector<cv::Point> >* RedContourGrip::GetFilterContoursOutput(){
 	void RedContourGrip::rgbThreshold(cv::Mat &input, double red[], double green[], double blue[], cv::Mat &output) {
 		cv::cvtColor(input, output, cv::COLOR_BGR2RGB);
 		cv::inRange(output, cv::Scalar(red[0], green[0], blue[0]), cv::Scalar(red[1], green[1], blue[1]), output);
-	}
-
-	void myThreshold(cv::Mat& input, cv::Mat& output) {
-		assert(input.type() == CV_8UC3);
-		output.create(input.rows, input.cols, CV_8U);
-
-		for (int i = 0; i < input.total(); ++i) {
-			output.data[i] = (
-				input.data[i*3 + 2] > 190 || // is bright
-				(input.data[i*3] < 200 && input.data[i*3 + 1] < 200 && input.data[i] > 140) // is red
-			) * 255;
-		}
 	}
 
 	/**
@@ -127,13 +131,13 @@ std::vector<std::vector<cv::Point> >* RedContourGrip::GetFilterContoursOutput(){
 			if (bb.height < minHeight || bb.height > maxHeight) continue;
 			double area = cv::contourArea(contour);
 			if (area < minArea) continue;
-			if (arcLength(contour, true) < minPerimeter) continue;
+			//if (arcLength(contour, true) < minPerimeter) continue;
 			cv::convexHull(cv::Mat(contour, true), hull);
 			double solid = 100 * area / cv::contourArea(hull);
 			if (solid < solidity[0] || solid > solidity[1]) continue;
-			if (contour.size() < minVertexCount || contour.size() > maxVertexCount)	continue;
-			double ratio = (double) bb.width / (double) bb.height;
-			if (ratio < minRatio || ratio > maxRatio) continue;
+			//if (contour.size() < minVertexCount || contour.size() > maxVertexCount)	continue;
+			//double ratio = (double) bb.width / (double) bb.height;
+			//if (ratio < minRatio || ratio > maxRatio) continue;
 			output.push_back(contour);
 		}
 	}
