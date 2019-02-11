@@ -22,8 +22,8 @@ namespace grip {
 class RedContourGrip {
 	private:
 		cv::Mat rgbThresholdOutput;
-		std::vector<std::vector<cv::Point> > findContoursOutput;
-		std::vector<std::vector<cv::Point> > filterContoursOutput;
+		std::vector<std::vector<cv::Point> > brightContours;
+		std::vector<std::vector<cv::Point> > redContours;
 		void rgbThreshold(cv::Mat &, double [], double [], double [], cv::Mat &);
 		void findContours(cv::Mat &, bool , std::vector<std::vector<cv::Point> > &);
 		void filterContours(std::vector<std::vector<cv::Point> > &, double , double , double , double , double , double , double [], double , double , double , double , std::vector<std::vector<cv::Point> > &);
@@ -32,8 +32,8 @@ class RedContourGrip {
 		RedContourGrip();
 		void Process(cv::Mat& source0);
 		cv::Mat* GetRgbThresholdOutput();
-		std::vector<std::vector<cv::Point> >* GetFindContoursOutput();
-		std::vector<std::vector<cv::Point> >* GetFilterContoursOutput();
+		std::vector<std::vector<cv::Point> >* GetRedContours();
+		std::vector<std::vector<cv::Point> >* GetBrightContours();
 };
 
 

@@ -273,6 +273,8 @@ ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 		left.right, right.left, left.bottom, right.bottom
 	};
 	
+	drawDebugPoints(cv::Mat(imagePoints));
+
 	cv::Mat rotation, translation;
 	cv::solvePnP(worldPoints, imagePoints, cameraMatrix, {}, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
 	
@@ -343,17 +345,9 @@ void testSideways() {
 	}
 }
 
-std::vector<VisionTarget> doVision(cv::Mat image) {
-	if (isImageTesting) debugDrawImage = &image;
-
-	std::vector<VisionTarget> results;
-
-	grip::RedContourGrip finder;
-	finder.Process(image);
-	std::vector<std::vector<cv::Point> >* contours = finder.GetFilterContoursOutput();
-	
-	// these rectangles are vertical, the vision targets are at an angle... it doesn't matter
-	std::vector<cv::Rect> rects;
+std::vector<VisionTarget> processContours(
+	std::vector<std::vector<cv::Point> >* contours, int imgWidth, int imgHeight) {
+std::vector<cv::Rect> rects;
 	std::vector<ContourCorners> contourCorners;
 
 	const float minRectWidth = 10; //pixels 
@@ -373,6 +367,8 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 	if (verboseMode) for (auto rect : rects) {
 		std::cout << "found rect: x:" << rect.x << ",y:" << rect.y << ",w:" << rect.width << ",h:" << rect.height << std::endl;
 	}
+
+	std::vector<VisionTarget> results;
 	
 	// find rects that are close enough in size and distance
 	for (unsigned int i = 0; i < rects.size(); ++i) {
@@ -388,10 +384,10 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
 				try {
 				// keep around old output for debugging
-				if (verboseMode) processRects(left, right, image.cols, image.rows);
+				if (verboseMode) processRects(left, right, imgWidth, imgHeight);
 
 				ProcessRectsResult result = processPoints(
-					contourCorners[i], contourCorners[j], image.cols, image.rows);
+					contourCorners[i], contourCorners[j], imgWidth, imgHeight);
 
 				if (result.success) {
 					results.push_back({ result.calcs, left, right });
@@ -410,6 +406,19 @@ std::vector<VisionTarget> doVision(cv::Mat image) {
 	});
 	
 	return results;
+}
+
+std::vector<VisionTarget> doVision(cv::Mat image) {
+	if (isImageTesting) debugDrawImage = &image;
+
+	grip::RedContourGrip finder;
+	finder.Process(image);
+	
+	auto results1 = processContours(finder.GetBrightContours(), image.cols, image.rows);
+	auto results2 = processContours(finder.GetRedContours(), image.cols, image.rows);
+
+	results1.insert(results1.begin(), results2.begin(), results2.end());
+	return results1;
 }
 
 

@@ -8,18 +8,17 @@ RedContourGrip::RedContourGrip() {
 * Runs an iteration of the pipeline and updates outputs.
 */
 
-void myThreshold(cv::Mat& input, cv::Mat& output) {
+void myThreshold(cv::Mat& input, cv::Mat& bright, cv::Mat& red) {
 	assert(input.type() == CV_8UC3);
-	output.create(input.rows, input.cols, CV_8U);
+	bright.create(input.rows, input.cols, CV_8U);
+	red.create(input.rows, input.cols, CV_8U);
 
 	#pragma omp parallel for
 	for (unsigned int i = 0; i < input.total(); ++i) {
 		cv::Vec3b px = input.at<cv::Vec3b>(i);
 
-		output.data[i] = (
-			px[2] > 200 || // is bright
-			(px[2] > 130 && px[2] - 30 > px[0] && px[2] - 30 > px[1]) // is red
-		) * 255;
+		bright.data[i] = (px[2] > 200) * 255;
+		red.data[i] = (px[2] > 130 && px[2] - 30 > px[0] && px[2] - 30 > px[1]) * 255;
 	}
 }
 
@@ -32,15 +31,19 @@ void RedContourGrip::Process(cv::Mat& source0){
 	double rgbThresholdBlue[] = {0.0, 255.0};
 	rgbThreshold(rgbThresholdInput, rgbThresholdRed, rgbThresholdGreen, rgbThresholdBlue, this->rgbThresholdOutput);
 	*/
-	myThreshold(source0, this->rgbThresholdOutput);
+	cv::Mat bright, red;
+	myThreshold(source0, bright, red);
 	//Step Find_Contours0:
 	//input
 	cv::Mat findContoursInput = rgbThresholdOutput;
 	bool findContoursExternalOnly = false;  // default Boolean
-	findContours(findContoursInput, findContoursExternalOnly, this->findContoursOutput);
+
+	std::vector<std::vector<cv::Point> > unfilteredBright, unfilteredRed;
+
+	findContours(bright, findContoursExternalOnly, unfilteredBright);
+	findContours(red, findContoursExternalOnly, unfilteredRed);
 	//Step Filter_Contours0:
 	//input
-	std::vector<std::vector<cv::Point> > filterContoursContours = findContoursOutput;
 	double filterContoursMinArea = 100;  // default Double
 	double filterContoursMinPerimeter = 0;  // default Double
 	double filterContoursMinWidth = 5.0;  // default Double
@@ -52,7 +55,8 @@ void RedContourGrip::Process(cv::Mat& source0){
 	double filterContoursMinVertices = 0;  // default Double
 	double filterContoursMinRatio = 0;  // default Double
 	double filterContoursMaxRatio = 1000;  // default Double
-	filterContours(filterContoursContours, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->filterContoursOutput);
+	filterContours(unfilteredBright, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->brightContours);
+	filterContours(unfilteredRed, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->redContours);
 }
 
 /**
@@ -66,15 +70,15 @@ cv::Mat* RedContourGrip::GetRgbThresholdOutput(){
  * This method is a generated getter for the output of a Find_Contours.
  * @return ContoursReport output from Find_Contours.
  */
-std::vector<std::vector<cv::Point> >* RedContourGrip::GetFindContoursOutput(){
-	return &(this->findContoursOutput);
+std::vector<std::vector<cv::Point> >* RedContourGrip::GetBrightContours(){
+	return &(this->brightContours);
 }
 /**
  * This method is a generated getter for the output of a Filter_Contours.
  * @return ContoursReport output from Filter_Contours.
  */
-std::vector<std::vector<cv::Point> >* RedContourGrip::GetFilterContoursOutput(){
-	return &(this->filterContoursOutput);
+std::vector<std::vector<cv::Point> >* RedContourGrip::GetRedContours(){
+	return &(this->redContours);
 }
 	/**
 	 * Segment an image based on color ranges.
