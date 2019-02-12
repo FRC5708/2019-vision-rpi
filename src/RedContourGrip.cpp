@@ -17,7 +17,7 @@ void myThreshold(cv::Mat& input, cv::Mat& bright, cv::Mat& red) {
 	for (unsigned int i = 0; i < input.total(); ++i) {
 		cv::Vec3b px = input.at<cv::Vec3b>(i);
 
-		bright.data[i] = (px[2] > 200) * 255;
+		bright.data[i] = (px[2] > 190) * 255;
 		red.data[i] = (px[2] > 130 && px[2] - 30 > px[0] && px[2] - 30 > px[1]) * 255;
 	}
 }

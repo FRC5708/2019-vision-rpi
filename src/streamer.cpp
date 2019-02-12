@@ -68,7 +68,7 @@ void Streamer::launchGStreamer(const char* recieveAddress) {
 
 void Streamer::launchFFmpeg() {
 	ffmpegPID = runCommandAsync(
-		"ffmpeg -f v4l2 -pix_fmt yuyv422 -video_size 640x360 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2"
+		"ffmpeg -f v4l2 -pix_fmt yuyv422 -video_size  800x448 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2"
 	, servFd);
 }
 

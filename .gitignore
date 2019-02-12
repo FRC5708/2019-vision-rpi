@@ -170,3 +170,5 @@ pi_include/
 
 # executable
 5708-vision
+# output
+debugimg_*.png

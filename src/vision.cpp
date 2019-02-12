@@ -29,6 +29,11 @@ namespace cv {
 bool isImageTesting = false;
 bool verboseMode = false;
 
+namespace calib {
+	cv::Mat cameraMatrix, distCoeffs;
+	int width, height;
+}
+
 
 bool isNanOrInf(double in) {
 	return isnan(in) || isinf(in);
@@ -73,7 +78,7 @@ cv::Vec3d getEulerAngles(cv::Mat &rotation) {
 	return eulerAngles;
 }
 
-struct ProcessRectsResult {
+struct ProcessPointsResult {
 	bool success;
 	VisionData calcs;
 };
@@ -104,10 +109,16 @@ constexpr double inchCameraHeight = 20;//9.5; // from ground
 // see: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 // right now, it assumes perfect pinhole camera
 
+// these aren't used anymore
+// for old cameras
 constexpr double radFOV = (69.0/180.0)*M_PI;
 
+// for new cameras
+//constexpr double radFOV = (78.0/180.0)*M_PI;
+
+// this function is obsolete, and only called in verbose mode
 // this function uses hungarian notation for numbers. It's confusing otherwise
-ProcessRectsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth, int pixImageHeight) {
+ProcessPointsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidth, int pixImageHeight) {
 	VisionData result;
 	
 	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2))/2; // pixels. Estimated from the camera's FOV spec.
@@ -243,18 +254,11 @@ void drawDebugPoints(cv::Mat points) {
 	cv::imwrite("./debugimg_" + std::to_string(imgNum) + ".png", drawOn);
 }
 
-ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
+ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
  int pixImageWidth, int pixImageHeight) {
-	
-	const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(pixImageWidth, 2) + pow(pixImageHeight, 2)); // pixels. Estimated from the camera's FOV spec.
-	
 
-	double cameraMatrixVals[] {
-		pixFocalLength, 0, ((double) pixImageWidth)/2,
-		0, pixFocalLength, ((double) pixImageHeight)/2,
-		0, 0, 1
-	};
-	cv::Mat cameraMatrix(3, 3, CV_64F, cameraMatrixVals);
+	// There might be a bug in openCV that would require the focal length to be multiplied by 2.
+	// Test this.
 
 	// world coords: (0, 0, 0) at bottom center of tapes
 	// up and right are positive. y-axis is vertical.
@@ -273,21 +277,23 @@ ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 		left.right, right.left, left.bottom, right.bottom
 	};
 	
-	drawDebugPoints(cv::Mat(imagePoints));
+	if (isImageTesting) drawDebugPoints(cv::Mat(imagePoints));
 
 	cv::Mat rotation, translation;
-	cv::solvePnP(worldPoints, imagePoints, cameraMatrix, {}, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
+	cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
 	
-	cv::Mat projPoints;
-	cv::projectPoints(worldPoints, rotation, translation, cameraMatrix, {}, projPoints);
-	drawDebugPoints(projPoints);
+	if (isImageTesting) {
+		cv::Mat projPoints;
+		cv::projectPoints(worldPoints, rotation, translation, calib::cameraMatrix, calib::distCoeffs, projPoints);
+		drawDebugPoints(projPoints);
+	}
 	
 	if (matContainsNan(translation) || matContainsNan (rotation)) {
 		std::cout << "solvePnP returned NaN!\n";
 		return { false, {}};
 	} 
 
-	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rotation, translation, cameraMatrix, cv::Mat());
+	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rotation, translation, calib::cameraMatrix, calib::distCoeffs);
 
 	cv::Vec3d angles = getEulerAngles(rotation);
 	double radPitch = angles[0]/180*M_PI;
@@ -319,18 +325,19 @@ ProcessRectsResult processPoints(ContourCorners left, ContourCorners right,
 
 	double pixMaxError = std::max(3, 
 		((left.bottom.y - left.top.y) + (right.bottom.y - right.top.y))/2 / 6);
-	constexpr double radMaxCameraPitch = 40.0/180.0*M_PI;
+	//constexpr double radMaxCameraPitch = 40.0/180.0*M_PI;
 	constexpr double degMaxRoll = 20; // degrees
 	constexpr double inchMinDistance = 10;
 	
-	double radReferencePitch = fmod((radPitch + 2*M_PI), M_PI); // make positive
-	if (radReferencePitch > M_PI_2) radReferencePitch = M_PI - radReferencePitch;
+	//double radReferencePitch = fmod((radPitch + 2*M_PI), M_PI); // make positive
+	//if (radReferencePitch > M_PI_2) radReferencePitch = M_PI - radReferencePitch;
 
 	if (pixError > pixMaxError ||
 	result.distance < inchMinDistance ||
-	radReferencePitch > radMaxCameraPitch || 
+	//radReferencePitch > radMaxCameraPitch || 
 	fabs(angles[2]) > degMaxRoll) {
-		 return { false, {}};
+		std::cout << "result rejected" << std::endl;
+		return { false, {}};
 	}
 
 	return { true, result };
@@ -386,7 +393,7 @@ std::vector<cv::Rect> rects;
 				// keep around old output for debugging
 				if (verboseMode) processRects(left, right, imgWidth, imgHeight);
 
-				ProcessRectsResult result = processPoints(
+				ProcessPointsResult result = processPoints(
 					contourCorners[i], contourCorners[j], imgWidth, imgHeight);
 
 				if (result.success) {

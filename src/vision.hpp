@@ -1,6 +1,7 @@
 #pragma once
 
 #include <opencv2/core.hpp>
+#include <opencv2/core/mat.hpp>
 
 struct VisionData {
 	double height;
@@ -22,3 +23,8 @@ std::vector<VisionTarget> doVision(cv::Mat image);
 
 extern bool isImageTesting;
 extern bool verboseMode;
+
+namespace calib {
+	extern cv::Mat cameraMatrix, distCoeffs;
+	extern int width, height;
+}
