@@ -38,10 +38,6 @@ void RedContourGrip::Process(cv::Mat& source0){
 	cv::Mat findContoursInput = rgbThresholdOutput;
 	bool findContoursExternalOnly = false;  // default Boolean
 
-	std::vector<std::vector<cv::Point> > unfilteredBright, unfilteredRed;
-
-	findContours(bright, findContoursExternalOnly, unfilteredBright);
-	findContours(red, findContoursExternalOnly, unfilteredRed);
 	//Step Filter_Contours0:
 	//input
 	double filterContoursMinArea = 100;  // default Double
@@ -55,8 +51,20 @@ void RedContourGrip::Process(cv::Mat& source0){
 	double filterContoursMinVertices = 0;  // default Double
 	double filterContoursMinRatio = 0;  // default Double
 	double filterContoursMaxRatio = 1000;  // default Double
-	filterContours(unfilteredBright, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->brightContours);
-	filterContours(unfilteredRed, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->redContours);
+	
+	std::vector<std::vector<cv::Point> > unfilteredBright, unfilteredRed;
+	
+	#pragma omp parallel
+	#pragma omp single
+	{
+		#pragma omp task
+		findContours(bright, findContoursExternalOnly, unfilteredBright);
+		filterContours(unfilteredBright, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->brightContours);
+		
+		#pragma omp task
+		findContours(red, findContoursExternalOnly, unfilteredRed);
+		filterContours(unfilteredRed, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->redContours);
+	}
 }
 
 /**
