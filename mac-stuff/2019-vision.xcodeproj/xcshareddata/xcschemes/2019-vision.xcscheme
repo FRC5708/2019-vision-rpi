@@ -63,6 +63,10 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
+            argument = "/Users/max/Documents/robotics/2019-vision/calib_data/logitech_1080.xml"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "/Users/max/Documents/robotics/2019-vision/camera-testimg.jpg"
             isEnabled = "YES">
          </CommandLineArgument>

@@ -7,6 +7,8 @@ RedContourGrip::RedContourGrip() {
 /**
 * Runs an iteration of the pipeline and updates outputs.
 */
+//#define RED
+#define GREEN
 
 void myThreshold(cv::Mat& input, cv::Mat& bright, cv::Mat& red) {
 	assert(input.type() == CV_8UC3);
@@ -16,9 +18,15 @@ void myThreshold(cv::Mat& input, cv::Mat& bright, cv::Mat& red) {
 	#pragma omp parallel for
 	for (unsigned int i = 0; i < input.total(); ++i) {
 		cv::Vec3b px = input.at<cv::Vec3b>(i);
-
+#ifdef RED
 		bright.data[i] = (px[2] > 190) * 255;
 		red.data[i] = (px[2] > 130 && px[2] - 30 > px[0] && px[2] - 30 > px[1]) * 255;
+#elif defined(GREEN)
+		bright.data[i] = (px[1] > 190) * 255;
+		red.data[i] = (px[1] > 130 && px[1] - 30 > px[0] && px[1] - 30 > px[2]) * 255;
+#else
+		static_assert(false, "not red or green");
+#endif
 	}
 }
 
@@ -54,17 +62,17 @@ void RedContourGrip::Process(cv::Mat& source0){
 	
 	std::vector<std::vector<cv::Point> > unfilteredBright, unfilteredRed;
 	
-	#pragma omp parallel
+	/*#pragma omp parallel
 	#pragma omp single
 	{
-		#pragma omp task
+		#pragma omp task*/
 		findContours(bright, findContoursExternalOnly, unfilteredBright);
 		filterContours(unfilteredBright, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->brightContours);
 		
-		#pragma omp task
+		//#pragma omp task
 		findContours(red, findContoursExternalOnly, unfilteredRed);
 		filterContours(unfilteredRed, filterContoursMinArea, filterContoursMinPerimeter, filterContoursMinWidth, filterContoursMaxWidth, filterContoursMinHeight, filterContoursMaxHeight, filterContoursSolidity, filterContoursMaxVertices, filterContoursMinVertices, filterContoursMinRatio, filterContoursMaxRatio, this->redContours);
-	}
+	//}
 }
 
 /**

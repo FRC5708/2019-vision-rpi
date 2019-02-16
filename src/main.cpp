@@ -155,7 +155,8 @@ namespace vision5708Main {
 	void setDefaultCalibParams() {
 		calib::width = 1280; calib::height = 720;
 
-		constexpr double radFOV = (69.0/180.0)*M_PI;
+		//constexpr double radFOV = (69.0/180.0)*M_PI;
+		constexpr double radFOV = (78.0/180.0)*M_PI;
 		const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(calib::width, 2) + pow(calib::height, 2))/2; // pixels. Estimated from the camera's FOV spec.
 
 		static double cameraMatrixVals[] {
@@ -229,7 +230,7 @@ namespace vision5708Main {
 		}
 
 		#ifdef VERBOSE
-		verboseMode = true;
+		//verboseMode = true;
 		#endif
 
 		signal(SIGPIPE, SIG_IGN);
