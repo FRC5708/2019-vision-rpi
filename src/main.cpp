@@ -137,12 +137,13 @@ namespace vision5708Main {
 		}
 	}
 
-	void readCalibParams(char* path) {
+	bool readCalibParams(const char* path, bool failHard = true) {
 		cv::FileStorage calibFile;
 		calibFile.open(path, cv::FileStorage::READ);
 		if (!calibFile.isOpened()) {
-			std::cerr << "Failed to open camera data " << path << endl;		
-			exit(1);
+			std::cerr << "Failed to open camera data " << path << endl;
+			if (failHard) exit(1);
+			else return false;
 		}
 		
 		calib::cameraMatrix = calibFile["cameraMatrix"].mat();
@@ -151,6 +152,7 @@ namespace vision5708Main {
 
 		calib::width = calibSize[0];
 		calib::height = calibSize[1];
+		return true;
 	}
 	void setDefaultCalibParams() {
 		calib::width = 1280; calib::height = 720;
@@ -181,7 +183,7 @@ namespace vision5708Main {
 
 		calib::width = width; calib::height = height;
 	}
-	void doImageTesting(char* path) {
+	void doImageTesting(const char* path) {
 		isImageTesting = true; verboseMode = true;
 				
 		cv::Mat image=cv::imread(path);
@@ -204,11 +206,11 @@ namespace vision5708Main {
 		return extension == "PNG" || extension == "JPG" || extension == "JPEG";
 	}
 	
-	//#define VERBOSE
+	#define VERBOSE
 
 	int main(int argc, char** argv) {
 
-		if (argc == 3) {
+		if (argc >= 3) {
 			readCalibParams(argv[1]);
 			doImageTesting(argv[2]);
 			return 0;
@@ -222,7 +224,9 @@ namespace vision5708Main {
 			else readCalibParams(argv[1]);
 		}
 		else if (argc == 1) {
-			setDefaultCalibParams();
+			if (!readCalibParams("/home/pi/vision-code/calib_data/logitech_c920.xml", false)) {
+				setDefaultCalibParams();
+			}
 		}
 		else {
 			cerr << "invalid number of arguments" << endl;
@@ -230,7 +234,7 @@ namespace vision5708Main {
 		}
 
 		#ifdef VERBOSE
-		//verboseMode = true;
+		verboseMode = true;
 		#endif
 
 		signal(SIGPIPE, SIG_IGN);

@@ -83,6 +83,41 @@ struct ProcessPointsResult {
 	VisionData calcs;
 };
 
+// from https://stackoverflow.com/a/43202277
+// +X is Right on the screen, +Y is Up, +Z is INTO the screen
+cv::Vec3d toDirectionVector(const cv::Mat& rodrigues1x3) noexcept
+{
+	cv::Mat rotation3x3;
+	cv::Rodrigues(rodrigues1x3, rotation3x3);
+	
+	// direction OUT of the screen in CV coordinate system, because we care
+	// about objects facing towards us - you can change this to anything
+	// OpenCV coordsys: +X is Right on the screen, +Y is Down on the screen,
+	//                  +Z is INTO the screen
+	cv::Vec3d axis{ 0, 0, -1 };
+	cv::Mat direction = rotation3x3 * cv::Mat(axis, false);
+	
+	// normalize to a unit vector
+	double dirX = direction.at<double>(0);
+	double dirY = direction.at<double>(1);
+	double dirZ = direction.at<double>(2);
+	double len = sqrt(dirX*dirX + dirY*dirY + dirZ*dirZ);
+	dirX /= len;
+	dirY /= len;
+	dirZ /= len;
+	// Convert from OpenCV to OpenGL 3D coordinate system
+	return { float(dirX), float(-dirY), float(dirZ) };
+}
+cv::Vec3d otherEulerAngles(const cv::Mat& rodrigues1x3) {
+	auto unitVec = toDirectionVector(rodrigues1x3);
+	
+	return {
+		atan2(unitVec[1], unitVec[2]),
+		atan2(unitVec[0], unitVec[2]),
+		atan2(unitVec[1], unitVec[0])
+	};
+}
+
 // all the constants
 constexpr double radTapeOrientation = 14.5/180*M_PI;
 constexpr double inchTapesWidth = 2;
@@ -205,6 +240,37 @@ ProcessPointsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidt
 	return { true, result };
 }
 
+// from https://docs.opencv.org/3.4/d9/dab/tutorial_homography.html
+void homoPose(cv::InputArray objPoints, cv::InputArray imgPoints, cv::Mat& rvec, cv::Mat& tvec) {
+	vector<cv::Point2f> normPoints;
+	cv::undistortPoints(imgPoints, normPoints, calib::cameraMatrix, calib::distCoeffs);
+	
+	cv::Mat H = cv::findHomography(objPoints, normPoints);
+	if (verboseMode) std::cout << "Homography matrix: " << H << std::endl;
+	
+	// Normalization to ensure that ||c1|| = 1
+	double norm = sqrt(H.at<double>(0,0)*H.at<double>(0,0) +
+					   H.at<double>(1,0)*H.at<double>(1,0) +
+					   H.at<double>(2,0)*H.at<double>(2,0));
+	H /= norm;
+	cv::Mat c1  = H.col(0);
+	cv::Mat c2  = H.col(1);
+	cv::Mat c3 = c1.cross(c2);
+	tvec = H.col(2);
+	cv::Mat R(3, 3, CV_64F);
+	
+	for (int i = 0; i < 3; i++) {
+		R.at<double>(i,0) = c1.at<double>(i,0);
+		R.at<double>(i,1) = c2.at<double>(i,0);
+		R.at<double>(i,2) = c3.at<double>(i,0);
+	}
+	cv::Mat W, U, Vt;
+	cv::SVDecomp(R, W, U, Vt);
+	R = U*Vt;
+	
+	cv::Rodrigues(R, rvec);
+}
+
 struct ContourCorners {
 	cv::Point left, top, right, bottom;
 	ContourCorners() : left(INT_MAX, INT_MAX), 
@@ -246,12 +312,12 @@ void drawDebugPoints(cv::Mat points) {
 		cv::Point2f point = points.at<cv::Point2f>(i);
 		cv::circle(drawOn, point, 2, cv::Scalar(0, 255, 0));
 	}
-	/*cv::namedWindow("projection");
+	cv::namedWindow("projection");
 	imshow("projection", drawOn);
-	cv::waitKey(0);*/
-	static int imgNum = 0;
+	cv::waitKey(0);
+	/*static int imgNum = 0;
 	++imgNum;
-	cv::imwrite("./debugimg_" + std::to_string(imgNum) + ".png", drawOn);
+	cv::imwrite("./debugimg_" + std::to_string(imgNum) + ".png", drawOn);*/
 }
 
 ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
@@ -272,6 +338,16 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		cv::Point3f(-inchTapeBottomsApart/2, 0, 0),
 		cv::Point3f(inchTapeBottomsApart/2, 0, 0)
 	};
+	std::vector<cv::Point2f> flatWorldPoints = {
+		cv::Point2f(-inchOuterTapesApart/2, inchTapesWidth*sin(radTapeOrientation)),
+		cv::Point2f(inchOuterTapesApart/2, inchTapesWidth*sin(radTapeOrientation)),
+		cv::Point2f(-inchTapeTopsApart/2, inchTapesHeight),
+		cv::Point2f(inchTapeTopsApart/2, inchTapesHeight),
+		cv::Point2f(-inchInnerTapesApart/2, inchTapesLength*cos(radTapeOrientation)),
+		cv::Point2f(inchInnerTapesApart/2, inchTapesLength*cos(radTapeOrientation)),
+		cv::Point2f(-inchTapeBottomsApart/2, 0),
+		cv::Point2f(inchTapeBottomsApart/2, 0)
+	};
 	std::vector<cv::Point2f> imagePoints = {
 		left.left, right.right, left.top, right.top,
 		left.right, right.left, left.bottom, right.bottom
@@ -280,8 +356,8 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	if (isImageTesting) drawDebugPoints(cv::Mat(imagePoints));
 
 	cv::Mat rotation, translation;
-	cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
-	
+	//cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
+	homoPose(flatWorldPoints, imagePoints, rotation, translation);
 	if (isImageTesting) {
 		cv::Mat projPoints;
 		cv::projectPoints(worldPoints, rotation, translation, calib::cameraMatrix, calib::distCoeffs, projPoints);
@@ -303,12 +379,6 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	double inchRobotY = translation.at<double>(2) * cos(radPitch); // should always be negative
 	double inchCalcTapesAboveGround = //inchCameraHeight - (
 	translation.at<double>(1) * cos(radPitch) + translation.at<double>(2) * sin(-radPitch);
-
-	if (verboseMode) {
-		std::cout << "\nerror:" << pixError << " pitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
-		<< "\ntrans: " << translation << 
-		"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround << '\n';
-	}
 
 	VisionData result;
 	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
@@ -332,14 +402,23 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	//double radReferencePitch = fmod((radPitch + 2*M_PI), M_PI); // make positive
 	//if (radReferencePitch > M_PI_2) radReferencePitch = M_PI - radReferencePitch;
 
+	cv::Vec3d altAngles = otherEulerAngles(rotation) / M_PI * 180;
+	if (verboseMode) {
+		std::cout << "\nerror:" << pixError << " pitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2]
+		<< "\npitch2:" << altAngles[0] << " yaw2:" << altAngles[1] << " roll2:" << altAngles[2]
+		<< "\ntrans: " << translation <<
+		"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround << '\n';
+	}
+	
 	if (pixError > pixMaxError ||
 	result.distance < inchMinDistance ||
 	//radReferencePitch > radMaxCameraPitch || 
 	fabs(angles[2]) > degMaxRoll) {
-		std::cout << "result rejected" << std::endl;
+		std::cout << "result rejected. Error: " << pixError << " Max error: " << pixMaxError << std::endl;
 		return { false, {}};
 	}
 
+	
 	return { true, result };
 }
 
@@ -389,9 +468,9 @@ std::vector<cv::Rect> rects;
 			    abs(left.width - right.width) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.height - right.height) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
-				try {
+				//try {
 				// keep around old output for debugging
-				if (verboseMode) processRects(left, right, imgWidth, imgHeight);
+				//if (verboseMode) processRects(left, right, imgWidth, imgHeight);
 
 				ProcessPointsResult result = processPoints(
 					contourCorners[i], contourCorners[j], imgWidth, imgHeight);
@@ -399,11 +478,11 @@ std::vector<cv::Rect> rects;
 				if (result.success) {
 					results.push_back({ result.calcs, left, right });
 				}
-				}
+				/*}
 				catch (const cv::Exception e) {
 					if (isImageTesting) throw;
 					std::cerr << e.msg << std::endl;
-				}
+				}*/
 			}
 		}
 	}
