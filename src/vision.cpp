@@ -89,9 +89,9 @@ constexpr double inchTapesWidth = 2;
 constexpr double inchTapesLength = 5.5;
 constexpr double inchInnerTapesApart = 8;
 const double inchTapesHeight = inchTapesLength + inchTapesWidth*sin(radTapeOrientation); // from bottom to top of tapes
-const double inchTapeTopsApart = inchInnerTapesApart + inchTapesWidth*cos(radTapeOrientation);
-const double inchTapeBottomsApart = inchInnerTapesApart + inchTapesLength*sin(radTapeOrientation);
-const double inchOuterTapesApart = inchTapeTopsApart + inchTapesLength*sin(radTapeOrientation); // from outermost edge
+const double inchTapeTopsApart = inchInnerTapesApart + 2*inchTapesWidth*cos(radTapeOrientation);
+const double inchTapeBottomsApart = inchInnerTapesApart + 2*inchTapesLength*sin(radTapeOrientation);
+const double inchOuterTapesApart = inchTapeTopsApart + 2*inchTapesLength*sin(radTapeOrientation); // from outermost edge
 const double inchHatchTapesAboveGround = 2*12+7.5 - inchTapesHeight;
 const double inchPortTapesAboveGround = 3*12+3.125 - inchTapesHeight;
 
@@ -246,12 +246,19 @@ void drawDebugPoints(cv::Mat points) {
 		cv::Point2f point = points.at<cv::Point2f>(i);
 		cv::circle(drawOn, point, 2, cv::Scalar(0, 255, 0));
 	}
-	/*cv::namedWindow("projection");
+	cv::namedWindow("projection");
 	imshow("projection", drawOn);
-	cv::waitKey(0);*/
-	static int imgNum = 0;
+	cv::waitKey(0);
+	/*static int imgNum = 0;
 	++imgNum;
-	cv::imwrite("./debugimg_" + std::to_string(imgNum) + ".png", drawOn);
+	cv::imwrite("./debugimg_" + std::to_string(imgNum) + ".png", drawOn);*/
+}
+
+void invertPose(cv::Mat& rotation_vector, cv::Mat& translation_vector, cv::Mat& cameraRotationVector, cv::Mat& cameraTranslationVector) {
+	cv::Mat R;
+	cv::Rodrigues(rotation_vector, R);
+	cv::Rodrigues(R.t(),cameraRotationVector);
+	cameraTranslationVector = -R.t()*translation_vector;
 }
 
 ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
@@ -279,12 +286,15 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	
 	if (isImageTesting) drawDebugPoints(cv::Mat(imagePoints));
 
-	cv::Mat rotation, translation;
-	cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rotation, translation, false, cv::SOLVEPNP_ITERATIVE);
+	cv::Mat rvec, tvec, rotation, translation;
+	cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rvec, tvec, false, cv::SOLVEPNP_ITERATIVE);
+	invertPose(rvec, tvec, rotation, translation);
+	
+	assert(tvec.type() == CV_64F && rvec.type() == CV_64F && rotation.type() == CV_64F && translation.type() == CV_64F);
 	
 	if (isImageTesting) {
 		cv::Mat projPoints;
-		cv::projectPoints(worldPoints, rotation, translation, calib::cameraMatrix, calib::distCoeffs, projPoints);
+		cv::projectPoints(worldPoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs, projPoints);
 		drawDebugPoints(projPoints);
 	}
 	
@@ -293,30 +303,26 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		return { false, {}};
 	} 
 
-	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rotation, translation, calib::cameraMatrix, calib::distCoeffs);
+	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs);
 
 	cv::Vec3d angles = getEulerAngles(rotation);
-	double radPitch = angles[0]/180*M_PI;
-
+	
 	// x is right postive, y is forwards positive
 	double inchRobotX = translation.at<double>(0);
-	double inchRobotY = translation.at<double>(2) * cos(radPitch); // should always be negative
-	double inchCalcTapesAboveGround = //inchCameraHeight - (
-	translation.at<double>(1) * cos(radPitch) + translation.at<double>(2) * sin(-radPitch);
+	double inchRobotY = translation.at<double>(2);
+	double inchCalcTapesAboveCamera = translation.at<double>(1);
 
 	if (verboseMode) {
 		std::cout << "\nerror:" << pixError << " pitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
-		<< "\ntrans: " << translation << 
-		"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveGround << '\n';
+		<< "\ntrans: " << translation << "\ntvec: " << tvec <<
+		"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveCamera << '\n';
 	}
 
 	VisionData result;
 	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
 
-	result.robotAngle = atan2(-inchRobotX, -inchRobotY);
-
-	// not correct if camera is angled
-	result.tapeAngle = angles[1]/180*M_PI;
+	result.tapeAngle = atan2(inchRobotX, inchRobotY);
+	result.robotAngle = asin(tvec.at<double>(0) / result.distance);
 
 	if (isNanOrInf(result.distance) || isNanOrInf(result.robotAngle) || isNanOrInf(result.tapeAngle)) {
 		std::cout << "encountered NaN or Infinity" << std::endl;
@@ -391,7 +397,7 @@ std::vector<cv::Rect> rects;
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
 				try {
 				// keep around old output for debugging
-				if (verboseMode) processRects(left, right, imgWidth, imgHeight);
+				//if (verboseMode) processRects(left, right, imgWidth, imgHeight);
 
 				ProcessPointsResult result = processPoints(
 					contourCorners[i], contourCorners[j], imgWidth, imgHeight);

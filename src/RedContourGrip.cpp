@@ -22,7 +22,7 @@ void myThreshold(cv::Mat& input, cv::Mat& bright, cv::Mat& red) {
 		bright.data[i] = (px[2] > 190) * 255;
 		red.data[i] = (px[2] > 130 && px[2] - 30 > px[0] && px[2] - 30 > px[1]) * 255;
 #elif defined(GREEN)
-		bright.data[i] = (px[1] > 190) * 255;
+		bright.data[i] = (px[0] + px[1] + px[2] > 3*240) * 255;
 		red.data[i] = (px[1] > 130 && px[1] - 30 > px[0] && px[1] - 30 > px[2]) * 255;
 #else
 		static_assert(false, "not red or green");
@@ -41,6 +41,10 @@ void RedContourGrip::Process(cv::Mat& source0){
 	*/
 	cv::Mat bright, red;
 	myThreshold(source0, bright, red);
+	
+	/*cv::namedWindow("threshold");
+	imshow("threshold", bright);
+	cv::waitKey(0);*/
 	//Step Find_Contours0:
 	//input
 	cv::Mat findContoursInput = rgbThresholdOutput;

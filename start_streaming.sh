@@ -12,5 +12,5 @@ fi
 #timeout 1 nc -ul4 1234 &
 #timeout 1 nc -ul6 1234 &
 
-echo "" | nc $PI_ADDR 5807 && \
+echo "" | nc -4 $PI_ADDR 5807 && \
 $GST_COMMAND udpsrc port=5809 ! gdpdepay ! rtph264depay ! avdec_h264 ! autovideosink sync=false

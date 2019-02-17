@@ -137,28 +137,13 @@ namespace vision5708Main {
 		}
 	}
 
-	void readCalibParams(char* path) {
-		cv::FileStorage calibFile;
-		calibFile.open(path, cv::FileStorage::READ);
-		if (!calibFile.isOpened()) {
-			std::cerr << "Failed to open camera data " << path << endl;		
-			exit(1);
-		}
-		
-		calib::cameraMatrix = calibFile["cameraMatrix"].mat();
-		calib::distCoeffs = calibFile["dist_coeffs"].mat();
-		cv::FileNode calibSize = calibFile["cameraResolution"];
-
-		calib::width = calibSize[0];
-		calib::height = calibSize[1];
-	}
 	void setDefaultCalibParams() {
 		calib::width = 1280; calib::height = 720;
-
+		
 		//constexpr double radFOV = (69.0/180.0)*M_PI;
 		constexpr double radFOV = (78.0/180.0)*M_PI;
 		const double pixFocalLength = tan((M_PI_2) - radFOV/2) * sqrt(pow(calib::width, 2) + pow(calib::height, 2))/2; // pixels. Estimated from the camera's FOV spec.
-
+		
 		static double cameraMatrixVals[] {
 			pixFocalLength, 0, ((double) calib::width)/2,
 			0, pixFocalLength, ((double) calib::height)/2,
@@ -166,6 +151,32 @@ namespace vision5708Main {
 		};
 		calib::cameraMatrix = cv::Mat(3, 3, CV_64F, cameraMatrixVals);
 		// distCoeffs is empty matrix
+	}
+	bool readCalibParams(const char* path, bool failHard = true) {
+		cv::FileStorage calibFile;
+		calibFile.open(path, cv::FileStorage::READ);
+		if (!calibFile.isOpened()) {
+			std::cerr << "Failed to open camera data " << path << endl;
+			if (failHard) exit(1);
+			else return false;
+		}
+		
+		//setDefaultCalibParams();
+		calib::cameraMatrix = calibFile["cameraMatrix"].mat();
+		calib::distCoeffs = calibFile["dist_coeffs"].mat();
+		cv::FileNode calibSize = calibFile["cameraResolution"];
+
+		calib::width = calibSize[0];
+		calib::height = calibSize[1];
+		
+		assert(calib::cameraMatrix.type() == CV_64F);
+		
+		// correcting for opencv bug?
+		//calib::cameraMatrix.at<double>(0,0) *= 2;
+		//calib::cameraMatrix.at<double>(1,1) *= 2;
+		
+		cout << "Loaded camera data: " << path << endl;
+		return true;
 	}
 	// change camera calibration to match resolution of incoming image
 	void changeCalibResolution(int width, int height) {
@@ -180,8 +191,10 @@ namespace vision5708Main {
 		calib::cameraMatrix.at<double>(1, 2) *= (height / (double) calib::height);
 
 		calib::width = width; calib::height = height;
+		
+		cout << "camera matrix set to: " << calib::cameraMatrix << endl;
 	}
-	void doImageTesting(char* path) {
+	void doImageTesting(const char* path) {
 		isImageTesting = true; verboseMode = true;
 				
 		cv::Mat image=cv::imread(path);
@@ -208,7 +221,7 @@ namespace vision5708Main {
 
 	int main(int argc, char** argv) {
 
-		if (argc == 3) {
+		if (argc >= 3) {
 			readCalibParams(argv[1]);
 			doImageTesting(argv[2]);
 			return 0;
@@ -222,7 +235,9 @@ namespace vision5708Main {
 			else readCalibParams(argv[1]);
 		}
 		else if (argc == 1) {
-			setDefaultCalibParams();
+			if (!readCalibParams("/home/pi/vision-code/calib_data/logitech_c920.xml", false)) {
+				setDefaultCalibParams();
+			}
 		}
 		else {
 			cerr << "invalid number of arguments" << endl;
@@ -230,7 +245,7 @@ namespace vision5708Main {
 		}
 
 		#ifdef VERBOSE
-		//verboseMode = true;
+		verboseMode = true;
 		#endif
 
 		signal(SIGPIPE, SIG_IGN);
