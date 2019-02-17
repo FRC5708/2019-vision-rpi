@@ -11,7 +11,8 @@ build: main.o RedContourGrip.o vision.o streamer.o
 	g++ -Wno-psabi $(COMMON_FLAGS) -o ../5708-vision main.o RedContourGrip.o vision.o streamer.o `pkg-config --libs opencv` -pthread
 
 install:
-	cp -f ../5708-vision ~/bin/
+	cp ../5708-vision ../5708-vision-copy
+	mv ../5708-vision-copy ~/bin/
 
 clean:
 	rm ./*.o

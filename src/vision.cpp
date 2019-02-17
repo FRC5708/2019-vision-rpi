@@ -305,7 +305,7 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 
 	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs);
 
-	cv::Vec3d angles = getEulerAngles(rotation);
+	cv::Vec3d angles = getEulerAngles(rvec);
 	
 	// x is right postive, y is forwards positive
 	double inchRobotX = translation.at<double>(0);
@@ -321,7 +321,7 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	VisionData result;
 	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
 
-	result.tapeAngle = atan2(inchRobotX, inchRobotY);
+	result.tapeAngle = -atan2(inchRobotX, inchRobotY);
 	result.robotAngle = asin(tvec.at<double>(0) / result.distance);
 
 	if (isNanOrInf(result.distance) || isNanOrInf(result.robotAngle) || isNanOrInf(result.tapeAngle)) {

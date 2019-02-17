@@ -100,7 +100,7 @@ namespace vision5708Main {
 				}
 				toSend << "@" <<
 				std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - timeFrom).count()
-				<< endl;
+				 << endl;
 				
 				string sendStr = toSend.str();
 				
@@ -244,9 +244,9 @@ namespace vision5708Main {
 			return 1;
 		}
 
-		#ifdef VERBOSE
+		//#ifdef VERBOSE
 		verboseMode = true;
-		#endif
+		//#endif
 
 		signal(SIGPIPE, SIG_IGN);
 
