@@ -236,14 +236,21 @@ bool matContainsNan(cv::Mat& in) {
 
 void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
 	for (int i = 0; i < 8; ++i) {
-		cv::circle(image, toDraw.points[i], 2, cv::Scalar(255, 0, 0));
+		cv::circle(image, toDraw.points[i], 1, cv::Scalar(0, 255, 0), 2);
 	}
 	for (int i = 8; i < 16; ++i) {
-		cv::circle(image, toDraw.points[i], 2, cv::Scalar(0, 0, 255));
+		cv::circle(image, toDraw.points[i], 1, cv::Scalar(0, 0, 255), 2);
 	}
-	cv::line(image, toDraw.points[16], toDraw.points[17], cv::Scalar(255, 0, 0), 2);
-	cv::line(image, toDraw.points[18], toDraw.points[19], cv::Scalar(255, 0, 0), 2);
-	cv::line(image, toDraw.points[20], toDraw.points[21], cv::Scalar(0, 0, 255), 2);
+	for (int i = 18; i < 22; ++i) {
+		int oppPoint = i + 1;
+		if (oppPoint == 22) oppPoint = 18;
+		cv::line(image, toDraw.points[i], toDraw.points[oppPoint], cv::Scalar(255, 0, 0), 1);
+	}
+	for (int i = 22; i < sizeof(VisionDrawPoints) / sizeof(cv::Point2f); i += 2) {
+		cv::line(image, toDraw.points[i], toDraw.points[i + 1], cv::Scalar(255, 0, 0), 2);
+	}
+	cv::line(image, toDraw.points[16], toDraw.points[17], cv::Scalar(0, 0, 255), 2);
+	cv::circle(image, toDraw.points[16], 2, cv::Scalar(0, 255, 255), 4);
 }
 
 cv::Mat* debugDrawImage;
@@ -349,9 +356,13 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	
 	constexpr float CROSSHAIR_LENGTH = 4;
 	worldPoints.insert(worldPoints.end(), {
+		cv::Point3f(0, 0, CROSSHAIR_LENGTH), cv::Point3f(0, 0, -CROSSHAIR_LENGTH),
+		
+		cv::Point3f(CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0), cv::Point3f(-CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0),
+		cv::Point3f(-CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0), cv::Point3f(CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0),
+		
 		cv::Point3f(-CROSSHAIR_LENGTH, 0, 0), cv::Point3f(CROSSHAIR_LENGTH, 0, 0),
-		cv::Point3f(0, -CROSSHAIR_LENGTH, 0), cv::Point3f(0, CROSSHAIR_LENGTH, 0),
-		cv::Point3f(0, 0, -CROSSHAIR_LENGTH), cv::Point3f(0, 0, CROSSHAIR_LENGTH)
+		cv::Point3f(0, -CROSSHAIR_LENGTH, 0), cv::Point3f(0, CROSSHAIR_LENGTH, 0)
 	});
 	
 	cv::Mat projPoints;

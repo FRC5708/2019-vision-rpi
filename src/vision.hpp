@@ -22,12 +22,11 @@ struct VisionData {
 struct VisionDrawPoints {
 	// First, 8 points on corners of vision targets.
 	// Then those points, reprojected using the target location.
-	// the following six points should be drawn as lines:
-	// the next two lines form a crosshair on the vision target
-	// the last line goes through that crosshair along the z-axis
-	// (last line should be a different color)
+	// the next two points are a line of color 1
+	// the next four points form a square of color 2
+	// the remaining point pairs are lines of color 2
 	
-	cv::Point2f points[22];
+	cv::Point2f points[26];
 };
 void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image);
 
