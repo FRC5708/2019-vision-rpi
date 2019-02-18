@@ -19,8 +19,21 @@ struct VisionData {
 	double robotAngle;
 };
 
+struct VisionDrawPoints {
+	// First, 8 points on corners of vision targets.
+	// Then those points, reprojected using the target location.
+	// the following six points should be drawn as lines:
+	// the next two lines form a crosshair on the vision target
+	// the last line goes through that crosshair along the z-axis
+	// (last line should be a different color)
+	
+	cv::Point2f points[22];
+};
+void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image);
+
 struct VisionTarget {
 	VisionData calcs;
+	VisionDrawPoints drawPoints;
 	cv::Rect left, right;
 };
 
