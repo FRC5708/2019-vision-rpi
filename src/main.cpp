@@ -251,7 +251,7 @@ namespace vision5708Main {
 		signal(SIGPIPE, SIG_IGN);
 
 		Streamer streamer;
-		streamer.launchFFmpeg();
+		//streamer.launchFFmpeg();
 
 		cv::VideoCapture camera;
 		
@@ -260,11 +260,11 @@ namespace vision5708Main {
 			
 			
 			#ifdef __linux__
-			success = camera.open("/dev/video1");
+			success = camera.open("/dev/video0");
 			#else
-			success = camera.open(1);
+			success = camera.open(0);
 			#endif
-			cout << "camera opening " << (success? ("succeeded @/dev/video1") : "failed") << endl;
+			cout << "camera opening " << (success? ("succeeded @/dev/video0") : "failed") << endl;
 			if (!success) usleep(200000); // 200 ms
 		}
 		if(!success){
