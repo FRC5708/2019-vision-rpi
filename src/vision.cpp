@@ -81,6 +81,7 @@ cv::Vec3d getEulerAngles(cv::Mat &rotation) {
 struct ProcessPointsResult {
 	bool success;
 	VisionData calcs;
+	VisionDrawPoints drawPoints;
 };
 
 // all the constants
@@ -233,19 +234,31 @@ bool matContainsNan(cv::Mat& in) {
 	return false;
 }
 
+void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
+	for (int i = 0; i < 8; ++i) {
+		cv::circle(image, toDraw.points[i], 1, cv::Scalar(0, 255, 0), 2);
+	}
+	for (int i = 8; i < 16; ++i) {
+		cv::circle(image, toDraw.points[i], 1, cv::Scalar(0, 0, 255), 2);
+	}
+	for (int i = 18; i < 22; ++i) {
+		int oppPoint = i + 1;
+		if (oppPoint == 22) oppPoint = 18;
+		cv::line(image, toDraw.points[i], toDraw.points[oppPoint], cv::Scalar(255, 0, 0), 1);
+	}
+	for (int i = 22; i < sizeof(VisionDrawPoints) / sizeof(cv::Point2f); i += 2) {
+		cv::line(image, toDraw.points[i], toDraw.points[i + 1], cv::Scalar(255, 0, 0), 2);
+	}
+	cv::line(image, toDraw.points[16], toDraw.points[17], cv::Scalar(0, 0, 255), 2);
+	cv::circle(image, toDraw.points[16], 2, cv::Scalar(0, 255, 255), 4);
+}
 
 cv::Mat* debugDrawImage;
-void drawDebugPoints(cv::Mat points) {
+void showDebugPoints(VisionDrawPoints& toDraw) {
 	if (!isImageTesting) return;
-	std::cout << points << std::endl;
-	assert(points.type() == CV_32FC2);
-	
 	cv::Mat drawOn = debugDrawImage->clone();
 	
-	for (int i = 0; i < points.rows; ++i) {
-		cv::Point2f point = points.at<cv::Point2f>(i);
-		cv::circle(drawOn, point, 2, cv::Scalar(0, 255, 0));
-	}
+	drawVisionPoints(toDraw, drawOn);
 	cv::namedWindow("projection");
 	imshow("projection", drawOn);
 	cv::waitKey(0);
@@ -283,20 +296,12 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		left.left, right.right, left.top, right.top,
 		left.right, right.left, left.bottom, right.bottom
 	};
-	
-	if (isImageTesting) drawDebugPoints(cv::Mat(imagePoints));
 
 	cv::Mat rvec, tvec, rotation, translation;
 	cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rvec, tvec, false, cv::SOLVEPNP_ITERATIVE);
 	invertPose(rvec, tvec, rotation, translation);
 	
 	assert(tvec.type() == CV_64F && rvec.type() == CV_64F && rotation.type() == CV_64F && translation.type() == CV_64F);
-	
-	if (isImageTesting) {
-		cv::Mat projPoints;
-		cv::projectPoints(worldPoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs, projPoints);
-		drawDebugPoints(projPoints);
-	}
 	
 	if (matContainsNan(translation) || matContainsNan (rotation)) {
 		std::cout << "solvePnP returned NaN!\n";
@@ -346,7 +351,28 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		return { false, {}};
 	}
 
-	return { true, result };
+	VisionDrawPoints draw;
+	std::copy(imagePoints.begin(), imagePoints.end(), draw.points);
+	
+	constexpr float CROSSHAIR_LENGTH = 4;
+	worldPoints.insert(worldPoints.end(), {
+		cv::Point3f(0, 0, CROSSHAIR_LENGTH), cv::Point3f(0, 0, -CROSSHAIR_LENGTH),
+		
+		cv::Point3f(CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0), cv::Point3f(-CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0),
+		cv::Point3f(-CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0), cv::Point3f(CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0),
+		
+		cv::Point3f(-CROSSHAIR_LENGTH, 0, 0), cv::Point3f(CROSSHAIR_LENGTH, 0, 0),
+		cv::Point3f(0, -CROSSHAIR_LENGTH, 0), cv::Point3f(0, CROSSHAIR_LENGTH, 0)
+	});
+	
+	cv::Mat projPoints;
+	cv::projectPoints(worldPoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs, projPoints);
+	assert(projPoints.type() == CV_32FC2);
+	std::copy(projPoints.begin<cv::Point2f>(), projPoints.end<cv::Point2f>(), draw.points + 8);
+	
+	if (isImageTesting) showDebugPoints(draw);
+	
+	return { true, result, draw };
 }
 
 void testSideways() {
@@ -403,7 +429,7 @@ std::vector<cv::Rect> rects;
 					contourCorners[i], contourCorners[j], imgWidth, imgHeight);
 
 				if (result.success) {
-					results.push_back({ result.calcs, left, right });
+					results.push_back({ result.calcs, result.drawPoints, left, right });
 				}
 				}
 				catch (const cv::Exception e) {

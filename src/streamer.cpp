@@ -186,13 +186,7 @@ void Streamer::_writeFrame() {
 	cv::Mat drawnOn = image.clone();
 	
 	for (auto i = toDraw.begin(); i < toDraw.end(); ++i) {
-		
-		cv::Scalar color;
-		if (i == toDraw.begin()) color = cv::Scalar(0, 0, 255);
-		else color = cv::Scalar(255, 0, 0);
-		
-		cv::rectangle(drawnOn, toDraw[0].right, color);
-		cv::rectangle(drawnOn, toDraw[0].left, color);
+		drawVisionPoints(i->drawPoints, drawnOn);
 	}
 	
 	V4lwriter::instance.writeFrame(drawnOn);
