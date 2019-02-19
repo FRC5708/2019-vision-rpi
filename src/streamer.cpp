@@ -113,6 +113,7 @@ public:
 		write(v4l2lo, frame.data, vidsendsiz);
 	}
 };
+V4lwriter V4lwriter::instance;
 
 void Streamer::start(int width, int height) {
 	this->width = width; this->height = height;

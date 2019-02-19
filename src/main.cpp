@@ -255,12 +255,15 @@ namespace vision5708Main {
 
 		cv::VideoCapture camera;
 		
+		camera.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 360);
+		
 		bool success = false;
 		for (int i=0; !success; ++i) {
 			
 			
 			#ifdef __linux__
-			success = camera.open("/dev/video0");
+			success = camera.open("/dev/video0", cv::CAP_V4L2);
 			#else
 			success = camera.open(0);
 			#endif
