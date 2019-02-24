@@ -1,6 +1,6 @@
 
 COMMON_FLAGS=-Wno-psabi -fopenmp -march=native -mcpu=native -mtune=native
-CXXFLAGS=-g -Wall --std=c++11 -ffast-math $(COMMON_FLAGS) `pkg-config --cflags opencv`
+CXXFLAGS=-g -Wall --std=c++11 -ffast-math $(COMMON_FLAGS) -I/usr/local/include/opencv4/
 
 ODIR=obj
 
@@ -12,7 +12,7 @@ build: main.o RedContourGrip.o vision.o streamer.o
 
 install:
 	cp ../5708-vision ../5708-vision-copy
-	mv ../5708-vision-copy ~/bin/
+	mv ../5708-vision-copy ~/bin/5708-vision
 
 clean:
 	rm ./*.o
