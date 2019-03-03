@@ -23,11 +23,11 @@
 
 #include "vision.hpp"
 #include "streamer.hpp"
-#include "RioComm.h"
+#include "DataComm.h"
 
 using std::cout; using std::cerr; using std::endl; using std::string;
 
-void RioComm::setupSocket() {
+void DataComm::setupSocket() {
     fd = -1;
     
     // addrinfo is linked list
@@ -64,11 +64,11 @@ void RioComm::setupSocket() {
         return;
     }
 }
-RioComm::RioComm(const char* client_name) : client_name(client_name) {
+DataComm::DataComm(const char* client_name) : client_name(client_name) {
     setupSocket();
 }
 
-void RioComm::sendData(std::vector<VisionData> data, std::chrono::time_point<std::chrono::steady_clock> timeFrom) {
+void DataComm::sendData(std::vector<VisionData> data, std::chrono::time_point<std::chrono::steady_clock> timeFrom) {
     std::stringstream toSend;
     
     if (fd < 0) setupSocket();

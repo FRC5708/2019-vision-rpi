@@ -24,7 +24,7 @@
 #include "vision.hpp"
 #include "streamer.hpp"
 
-#include "RioComm.h"
+#include "DataComm.h"
 
 using std::cout; using std::cerr; using std::endl; using std::string;
 
@@ -43,7 +43,8 @@ namespace vision5708Main {
 	
 	
 	void VisionThread() {
-		RioComm rioComm=RioComm("10.57.8.2");
+		DataComm rioComm=DataComm("10.57.8.2");
+
 		
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
