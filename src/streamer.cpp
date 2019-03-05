@@ -46,6 +46,7 @@ pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 }
 
 void Streamer::launchGStreamer(const char* recieveAddress) {
+	prevRecvAddr = recieveAddress;
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
 #ifdef __linux__
@@ -99,7 +100,7 @@ public:
 		v.fmt.pix.width = width;
 		v.fmt.pix.height = height;
 		v.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
-		vidsendsiz = width * height * 2;
+		vidsendsiz = width * height * 3;
 		v.fmt.pix.sizeimage = vidsendsiz;
 		t = ioctl(v4l2lo, VIDIOC_S_FMT, &v);
 		if( t < 0 ) {
@@ -185,6 +186,7 @@ void Streamer::start(int width, int height) {
 
 void Streamer::_writeFrame() {
 	cv::Mat drawnOn = image.clone();
+	//std::cout << "writing frame" << std::endl;
 	
 	for (auto i = toDraw.begin(); i < toDraw.end(); ++i) {
 		drawVisionPoints(i->drawPoints, drawnOn);
@@ -196,8 +198,9 @@ void Streamer::_writeFrame() {
 void Streamer::writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw) {
 	this->image = image; this->toDraw = toDraw;
 	
-	waitLock.unlock();
-	condition.notify_all();
+	/*waitLock.unlock();
+	condition.notify_all();*/
+	_writeFrame();
 }
 
 void Streamer::run() {
