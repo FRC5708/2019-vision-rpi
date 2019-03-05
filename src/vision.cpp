@@ -246,7 +246,7 @@ void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
 		if (oppPoint == 22) oppPoint = 18;
 		cv::line(image, toDraw.points[i], toDraw.points[oppPoint], cv::Scalar(255, 0, 0), 1);
 	}
-	for (int i = 22; i < sizeof(VisionDrawPoints) / sizeof(cv::Point2f); i += 2) {
+	for (int i = 22; i < (int) (sizeof(VisionDrawPoints) / sizeof(cv::Point2f)); i += 2) {
 		cv::line(image, toDraw.points[i], toDraw.points[i + 1], cv::Scalar(255, 0, 0), 2);
 	}
 	cv::line(image, toDraw.points[16], toDraw.points[17], cv::Scalar(0, 0, 255), 2);
@@ -290,11 +290,11 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		cv::Point3f(-inchInnerTapesApart/2, inchTapesLength*cos(radTapeOrientation), 0),
 		cv::Point3f(inchInnerTapesApart/2, inchTapesLength*cos(radTapeOrientation), 0),
 		cv::Point3f(-inchTapeBottomsApart/2, 0, 0),
-		cv::Point3f(inchTapeBottomsApart/2, 0, 0)
+		//cv::Point3f(inchTapeBottomsApart/2, 0, 0)
 	};
 	std::vector<cv::Point2f> imagePoints = {
 		left.left, right.right, left.top, right.top,
-		left.right, right.left, left.bottom, right.bottom
+		left.right, right.left, left.bottom//, right.bottom
 	};
 
 	cv::Mat rvec, tvec, rotation, translation;
