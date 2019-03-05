@@ -148,6 +148,12 @@ namespace vision5708Main {
 	
 	//#define VERBOSE
 
+	Streamer streamer;
+	void chldHandler(int arg) {
+		streamer.relaunchGStreamer();
+	}
+
+	constexpr bool DO_DRAWING = false;
 	int main(int argc, char** argv) {
 
 		if (argc >= 3) {
@@ -173,27 +179,32 @@ namespace vision5708Main {
 			return 1;
 		}
 
-		//#ifdef VERBOSE
+		#ifdef VERBOSE
 		verboseMode = true;
-		//#endif
+		#endif
 
 		signal(SIGPIPE, SIG_IGN);
 
-		Streamer streamer;
-		streamer.launchFFmpeg();
+		if (!DO_DRAWING) streamer.launchFFmpeg();
 
 		cv::VideoCapture camera;
 		
+		// these dont work
+		camera.set(cv::CAP_PROP_FRAME_WIDTH, 800);
+		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 448);
+		
+		int cameraNum = DO_DRAWING ? 0 : 1;
+
 		bool success = false;
 		for (int i=0; !success; ++i) {
 			
 			
 			#ifdef __linux__
-			success = camera.open("/dev/video1");
+			success = camera.open("/dev/video" + std::to_string(cameraNum), cv::CAP_V4L2);
 			#else
-			success = camera.open(1);
+			success = camera.open(0);
 			#endif
-			cout << "camera opening " << (success? ("succeeded @/dev/video1") : "failed") << endl;
+			cout << "camera opening " << (success? ("succeeded @/dev/video" + std::to_string(cameraNum)) : "failed") << endl;
 			if (!success) usleep(200000); // 200 ms
 		}
 		if(!success){
@@ -207,12 +218,19 @@ namespace vision5708Main {
 		int imgWidth = currentFrame.cols, imgHeight = currentFrame.rows;
 		cout << "Got first frame. width=" << imgWidth << ", height=" << imgHeight << endl;
 		
-		streamer.start(imgWidth, imgHeight);		
+		streamer.start(imgWidth, imgHeight);
+		if (DO_DRAWING) signal(SIGCHLD, &chldHandler);
+		
+		/*Streamer* stcap = &streamer;
+		std::thread strThread([stcap]() {
+			stcap->run();
+		});*/
 		
 		changeCalibResolution(imgWidth, imgHeight);
 
-		std::thread thread(&VisionThread);
-		
+		std::thread visThread(&VisionThread);
+		//pthread_setschedparam(visThread.native_handle(), policy, 
+
 		while (true) {
 			#ifdef VERBOSE
 			auto frameReadStart = clock.now();
@@ -237,7 +255,7 @@ namespace vision5708Main {
 			waitMutex.unlock();
 			condition.notify_one();
 			
-			streamer.writeFrame(currentFrame, lastResults);
+			if (DO_DRAWING) streamer.writeFrame(currentFrame, lastResults);
 		}
 	}
 }

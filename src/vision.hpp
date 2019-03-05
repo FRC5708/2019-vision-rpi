@@ -15,7 +15,7 @@ struct VisionData {
 	double tapeAngle;
 	
 	// angle of robot from directly facing tapes.
-	// Positive when tapes are on the right side of the camera's image.
+	// Positive when tapes are on the left side of the camera's image.
 	double robotAngle;
 };
 
