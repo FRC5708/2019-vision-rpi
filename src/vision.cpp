@@ -208,11 +208,14 @@ ProcessPointsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidt
 
 struct ContourCorners {
 	cv::Point topleft, topright, bottomright, bottomleft;
-	ContourCorners() : topleft(INT_MAX, INT_MAX), 
-	topright(INT_MAX, INT_MAX), 
-	bottomright(0, 0),
-	bottomleft(0, 0) {}
+	ContourCorners() : topleft(0, 0),
+	topright(INT_MAX, 0),
+	bottomright(INT_MAX, INT_MAX),
+	bottomleft(0, INT_MAX) {}
 };
+void printContourCorners(ContourCorners corners) {
+	std::cout << "tl: " << corners.topleft << " tr: " << corners.topright << " bl: " << corners.bottomleft << " br: " << corners.bottomright;
+}
 
 ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
 	ContourCorners result;
@@ -224,6 +227,8 @@ ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
     std::cout << approx.size() << " " << d<< std::endl;
 	}while(approx.size()>4);
 	for(auto i: approx){
+		// We sometimes have 3 points here. Then everything breaks.
+		
 		short t_s=0,r_s=0;
 		for(auto j: approx){
 			t_s+=(short) i.y>=j.y;
@@ -231,15 +236,15 @@ ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
 		}
 		if(t_s>=3){
 			if(r_s>=3){
-				result.topright=i;
-			}else{
-				result.topleft=i;
-			}
-		}else{
-			if(r_s>=3){
 				result.bottomright=i;
 			}else{
 				result.bottomleft=i;
+			}
+		}else{
+			if(r_s>=3){
+				result.topright=i;
+			}else{
+				result.topleft=i;
 			}
 		}
 	}
@@ -296,6 +301,14 @@ void invertPose(cv::Mat& rotation_vector, cv::Mat& translation_vector, cv::Mat& 
 
 ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
  int pixImageWidth, int pixImageHeight) {
+	
+	if (verboseMode) {
+		std::cout << "left: ";
+		printContourCorners(left);
+		std::cout << "\nright: ";
+		printContourCorners(right);
+		std::cout << std::endl;
+	}
 
 	// There might be a bug in openCV that would require the focal length to be multiplied by 2.
 	// Test this.
@@ -415,6 +428,9 @@ std::vector<cv::Rect> rects;
 		cv::Rect rect = cv::boundingRect(i);
 		if (rect.width >= minRectWidth && rect.height >= minRectHeight) {
 			rects.push_back(rect);
+			/*if (verboseMode) {
+				std::cout << "contour: " <<
+			}*/
 			contourCorners.push_back(getContourCorners(i));
 		}
 	}

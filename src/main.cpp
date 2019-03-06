@@ -146,7 +146,7 @@ namespace vision5708Main {
 		return extension == "PNG" || extension == "JPG" || extension == "JPEG";
 	}
 	
-	#define VERBOSE
+	//#define VERBOSE
 
 	Streamer streamer;
 	void chldHandler(int arg) {
@@ -179,9 +179,9 @@ namespace vision5708Main {
 			return 1;
 		}
 
-		#ifdef VERBOSE
-		//verboseMode = true;
-		#endif
+		//#ifdef VERBOSE
+		verboseMode = true;
+		//#endif
 
 		signal(SIGPIPE, SIG_IGN);
 
