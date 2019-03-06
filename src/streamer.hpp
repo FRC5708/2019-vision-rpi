@@ -26,10 +26,11 @@ public:
 	int width, height;
 	
 	void start(int width, int height);
+	volatile bool handlingLaunchRequest = false;
 	
 	void writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw);
 	
-	void relaunchGStreamer() { launchGStreamer(prevRecvAddr); }
+	void relaunchGStreamer();
 	
 	void run(); // run thread
 	void launchFFmpeg(); // for loopback video

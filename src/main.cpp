@@ -146,14 +146,14 @@ namespace vision5708Main {
 		return extension == "PNG" || extension == "JPG" || extension == "JPEG";
 	}
 	
-	//#define VERBOSE
+	#define VERBOSE
 
 	Streamer streamer;
 	void chldHandler(int arg) {
 		streamer.relaunchGStreamer();
 	}
 
-	constexpr bool DO_DRAWING = false;
+	constexpr bool DO_DRAWING = true;
 	int main(int argc, char** argv) {
 
 		if (argc >= 3) {
@@ -180,7 +180,7 @@ namespace vision5708Main {
 		}
 
 		#ifdef VERBOSE
-		verboseMode = true;
+		//verboseMode = true;
 		#endif
 
 		signal(SIGPIPE, SIG_IGN);

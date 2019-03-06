@@ -45,6 +45,10 @@ pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 	else return pid;
 }
 
+void Streamer::relaunchGStreamer() {
+	if (!handlingLaunchRequest) launchGStreamer(prevRecvAddr);
+}
+
 void Streamer::launchGStreamer(const char* recieveAddress) {
 	prevRecvAddr = recieveAddress;
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
@@ -157,6 +161,8 @@ void Streamer::start(int width, int height) {
 				continue;
 			}
 
+			handlingLaunchRequest = true;
+
 			if (gstreamerPID > 0) {
 				cout << "killing previous instance: " << gstreamerPID << "   " << endl;
 				if (kill(gstreamerPID, SIGTERM) == -1) {
@@ -177,7 +183,9 @@ void Streamer::start(int width, int height) {
 
 			char strAddr[INET6_ADDRSTRLEN];
 			inet_ntop(AF_INET6, &(clientAddr.sin6_addr), strAddr, sizeof(strAddr));
-			launchGStreamer(strAddr);			
+			launchGStreamer(strAddr);
+
+			handlingLaunchRequest = false;
 		}
 	}).detach();
 	
