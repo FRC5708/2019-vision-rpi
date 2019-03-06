@@ -208,10 +208,10 @@ ProcessPointsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidt
 
 struct ContourCorners {
 	cv::Point bottomleft, topleft, bottomright, topright;
-	ContourCorners() : bottomleft(INT_MAX, INT_MAX), 
-	topleft(INT_MAX, INT_MAX), 
+	ContourCorners() : topleft(INT_MAX, INT_MAX), 
+	topright(INT_MAX, INT_MAX), 
 	bottomright(0, 0),
-	topright(0, 0) {}
+	bottomleft(0, 0) {}
 };
 
 ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
