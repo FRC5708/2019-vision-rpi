@@ -207,7 +207,7 @@ ProcessPointsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidt
 }
 
 struct ContourCorners {
-	cv::Point bottomleft, topleft, bottomright, topright;
+	cv::Point topleft, topright, bottomright, bottomleft;
 	ContourCorners() : topleft(INT_MAX, INT_MAX), 
 	topright(INT_MAX, INT_MAX), 
 	bottomright(0, 0),
@@ -313,8 +313,8 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		//cv::Point3f(inchTapeBottomsApart/2, 0, 0)
 	};
 	std::vector<cv::Point2f> imagePoints = {
-		left.left, right.right, left.top, right.top,
-		left.right, right.left, left.bottom//, right.bottom
+		left.bottomleft, right.bottomright, left.topleft, right.topright,
+		left.topright, right.topleft, left.bottomright//, right.bottom
 	};
 
 	cv::Mat rvec, tvec, rotation, translation;
@@ -355,7 +355,7 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	}
 
 	double pixMaxError = std::max(3, 
-		((left.bottom.y - left.top.y) + (right.bottom.y - right.top.y))/2 / 6);
+		((left.bottomright.y - left.topleft.y) + (right.bottomleft.y - right.topright.y))/2 / 6);
 	//constexpr double radMaxCameraPitch = 40.0/180.0*M_PI;
 	constexpr double degMaxRoll = 20; // degrees
 	constexpr double inchMinDistance = 10;
