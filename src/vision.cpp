@@ -207,21 +207,41 @@ ProcessPointsResult processRects(cv::Rect left, cv::Rect right, int pixImageWidt
 }
 
 struct ContourCorners {
-	cv::Point left, top, right, bottom;
-	ContourCorners() : left(INT_MAX, INT_MAX), 
-	top(INT_MAX, INT_MAX), 
-	right(0, 0),
-	bottom(0, 0) {}
+	cv::Point bottomleft, topleft, bottomright, topright;
+	ContourCorners() : bottomleft(INT_MAX, INT_MAX), 
+	topleft(INT_MAX, INT_MAX), 
+	bottomright(0, 0),
+	topright(0, 0) {}
 };
 
 ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
 	ContourCorners result;
-	
-	for (auto point : contour) {
-		if (point.x < result.left.x) result.left = point;
-		if (point.x > result.right.x) result.right = point;
-		if (point.y < result.top.y) result.top = point;
-		if (point.y > result.bottom.y) result.bottom = point;
+	std::vector<cv::Point> approx;
+	double d=0;
+	do{
+    d=d+1;
+    approxPolyDP(contour,approx,d,true);
+    std::cout << approx.size() << " " << d<< std::endl;
+	}while(approx.size()>4);
+	for(auto i: approx){
+		short t_s=0,r_s=0;
+		for(auto j: approx){
+			t_s+=(short) i.y>=j.y;
+			r_s+=(short) i.x>=j.x;
+		}
+		if(t_s>=3){
+			if(r_s>=3){
+				result.topright=i;
+			}else{
+				result.topleft=i;
+			}
+		}else{
+			if(r_s>=3){
+				result.bottomright=i;
+			}else{
+				result.bottomleft=i;
+			}
+		}
 	}
 	return result;
 }
