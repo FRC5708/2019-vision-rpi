@@ -347,7 +347,7 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
 
 	result.tapeAngle = -atan2(inchRobotX, inchRobotY);
-	result.robotAngle = asin(tvec.at<double>(0) / result.distance);
+	result.robotAngle = -asin(tvec.at<double>(0) / result.distance);
 
 	if (isNanOrInf(result.distance) || isNanOrInf(result.robotAngle) || isNanOrInf(result.tapeAngle)) {
 		std::cout << "encountered NaN or Infinity" << std::endl;
