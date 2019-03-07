@@ -356,6 +356,7 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	
 	constexpr float CROSSHAIR_LENGTH = 4;
 	worldPoints.insert(worldPoints.end(), {
+		cv::Point3f(inchTapeBottomsApart/2, 0, 0),
 		cv::Point3f(0, 0, CROSSHAIR_LENGTH), cv::Point3f(0, 0, -CROSSHAIR_LENGTH),
 		
 		cv::Point3f(CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0), cv::Point3f(-CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0),
