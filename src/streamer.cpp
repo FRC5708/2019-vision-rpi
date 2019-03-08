@@ -178,12 +178,18 @@ void Streamer::start(int width, int height) {
 
 			if (close(clientFd) == -1) perror("close");
 
+			
+
 			// wait for client's gstreamer to initialize
 			sleep(2);
 
 			char strAddr[INET6_ADDRSTRLEN];
 			inet_ntop(AF_INET6, &(clientAddr.sin6_addr), strAddr, sizeof(strAddr));
 			launchGStreamer(strAddr);
+
+			cout << "Starting UDP stream..." << endl;
+			computer_udp = DataComm(strAddr);
+			computer_udp_exists=true;
 
 			handlingLaunchRequest = false;
 		}

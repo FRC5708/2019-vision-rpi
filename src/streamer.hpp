@@ -35,3 +35,4 @@ public:
 	void run(); // run thread
 	void launchFFmpeg(); // for loopback video
 };
+extern int clientFd; 
