@@ -188,7 +188,7 @@ void Streamer::start(int width, int height) {
 			launchGStreamer(strAddr);
 
 			cout << "Starting UDP stream..." << endl;
-			computer_udp = DataComm(strAddr);
+			computer_udp = DataComm(strAddr,"5806");
 			computer_udp_exists=true;
 
 			handlingLaunchRequest = false;
