@@ -353,7 +353,9 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 
 	VisionDrawPoints draw;
 	std::copy(imagePoints.begin(), imagePoints.end(), draw.points);
-	
+	if(computer_udp_exists){
+		computer_udp.sendData(&draw);
+	}
 	constexpr float CROSSHAIR_LENGTH = 4;
 	worldPoints.insert(worldPoints.end(), {
 		cv::Point3f(inchTapeBottomsApart/2, 0, 0),
