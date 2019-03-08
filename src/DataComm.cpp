@@ -96,3 +96,10 @@ void DataComm::sendData(std::vector<VisionData> data, std::chrono::time_point<st
     
 	}
 };
+void DataComm::sendDraw(VisionDrawPoints* data){
+    if(send(fd,(void*) data,sizeof(VisionDrawPoints),0) < 0){
+        perror("Failed to send data!");
+        cout << errno << endl;
+        setupSocket();
+    }
+}

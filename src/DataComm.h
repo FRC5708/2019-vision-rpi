@@ -10,5 +10,5 @@ public:
     void setupSocket();
     DataComm(const char* client_name);
     void sendData(std::vector<VisionData> data, std::chrono::time_point<std::chrono::steady_clock> timeFrom);
-
+    void sendDraw(VisionDrawPoints*);
 };
