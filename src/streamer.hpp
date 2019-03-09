@@ -17,7 +17,7 @@ class Streamer {
 	cv::Mat image;
 	std::vector<VisionTarget> toDraw;
 	
-	void launchGStreamer(const char* recieveAddress);
+	void launchGStreamer(const char* recieveAddress, int bitrate);
 	const char* prevRecvAddr;
 
 	pid_t gstreamerPID = 0, ffmpegPID = 0;

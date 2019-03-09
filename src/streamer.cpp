@@ -46,10 +46,10 @@ pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 }
 
 void Streamer::relaunchGStreamer() {
-	if (!handlingLaunchRequest) launchGStreamer(prevRecvAddr);
+	if (!handlingLaunchRequest) launchGStreamer(prevRecvAddr, 1000000);
 }
 
-void Streamer::launchGStreamer(const char* recieveAddress) {
+void Streamer::launchGStreamer(const char* recieveAddress, int bitrate) {
 	prevRecvAddr = recieveAddress;
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
@@ -61,11 +61,11 @@ void Streamer::launchGStreamer(const char* recieveAddress) {
 	string gstreamCommand = "/usr/local/bin/gst-launch-1.0 autovideosrc";
 #endif
 	
-	int target_bitrate = 3000000;
+	//int target_bitrate = 3000000;
 	int port=5809;
 	
 	std::stringstream command;
-	command << gstreamCommand << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << target_bitrate <<
+	command << gstreamCommand << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
 	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
 	<< " host=" << recieveAddress << " port=" << port;
 
@@ -170,6 +170,9 @@ void Streamer::start(int width, int height) {
 				}
 				waitpid(gstreamerPID, nullptr, 0);
 			}
+			char bitrate[16];
+			ssize_t len = read(clientFd, bitrate, sizeof(bitrate));
+			bitrate[len] = '\0';
 			
 			const char message[] = "Launching remote GStreamer...\n";
 			if (write(clientFd, message, sizeof(message)) == -1) {
@@ -185,7 +188,7 @@ void Streamer::start(int width, int height) {
 
 			char strAddr[INET6_ADDRSTRLEN];
 			inet_ntop(AF_INET6, &(clientAddr.sin6_addr), strAddr, sizeof(strAddr));
-			launchGStreamer(strAddr);
+			launchGStreamer(strAddr, atoi(bitrate));
 
 			cout << "Starting UDP stream..." << endl;
 			computer_udp = DataComm(strAddr);
