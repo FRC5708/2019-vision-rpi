@@ -153,7 +153,7 @@ namespace vision5708Main {
 		streamer.relaunchGStreamer();
 	}
 
-	constexpr bool DO_DRAWING = true;
+	constexpr bool DO_DRAWING = false;
 	int main(int argc, char** argv) {
 
 		if (argc >= 3) {
