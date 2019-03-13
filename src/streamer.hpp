@@ -32,6 +32,8 @@ public:
 	
 	void relaunchGStreamer();
 	
+	cv::Mat getBGRFrame();
+
 	void run(); // run thread
 	void launchFFmpeg(); // for loopback video
 };

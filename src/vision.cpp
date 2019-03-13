@@ -1,7 +1,9 @@
 #include "vision.hpp"
 #include "RedContourGrip.hpp"
+#include "DataComm.h"
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
+
 
 // this function from opencv/samples/cpp/tutorial_code/calib3d/camera_calibration/camera_calibration.cpp
 using std::vector;
@@ -235,22 +237,33 @@ bool matContainsNan(cv::Mat& in) {
 }
 
 void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
+	/*cv::Scalar mainColor(255, 0, 0);
+	cv::Scalar rodColor(0, 0, 255);
+	cv::Scalar rawPointColor(0, 255, 0);
+	cv::Scalar dotColor(0, 255, 255);*/
+
+	cv::Scalar mainColor(0, 0);
+	cv::Scalar rodColor(60, 200);
+	cv::Scalar rawPointColor(128, 0);
+	cv::Scalar dotColor(128, 200);
+
+
 	for (int i = 0; i < 8; ++i) {
-		cv::circle(image, toDraw.points[i], 1, cv::Scalar(0, 255, 0), 2);
+		cv::circle(image, toDraw.points[i], 1, rawPointColor, 2);
 	}
 	for (int i = 8; i < 16; ++i) {
-		cv::circle(image, toDraw.points[i], 1, cv::Scalar(0, 0, 255), 2);
+		cv::circle(image, toDraw.points[i], 1, rodColor, 2);
 	}
 	for (int i = 18; i < 22; ++i) {
 		int oppPoint = i + 1;
 		if (oppPoint == 22) oppPoint = 18;
-		cv::line(image, toDraw.points[i], toDraw.points[oppPoint], cv::Scalar(255, 0, 0), 1);
+		cv::line(image, toDraw.points[i], toDraw.points[oppPoint], mainColor, 1);
 	}
 	for (int i = 22; i < (int) (sizeof(VisionDrawPoints) / sizeof(cv::Point2f)); i += 2) {
-		cv::line(image, toDraw.points[i], toDraw.points[i + 1], cv::Scalar(255, 0, 0), 2);
+		cv::line(image, toDraw.points[i], toDraw.points[i + 1], mainColor, 2);
 	}
-	cv::line(image, toDraw.points[16], toDraw.points[17], cv::Scalar(0, 0, 255), 2);
-	cv::circle(image, toDraw.points[16], 2, cv::Scalar(0, 255, 255), 4);
+	cv::line(image, toDraw.points[16], toDraw.points[17], rodColor, 2);
+	cv::circle(image, toDraw.points[16], 2, dotColor, 4);
 }
 
 cv::Mat* debugDrawImage;
@@ -354,7 +367,7 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	VisionDrawPoints draw;
 	std::copy(imagePoints.begin(), imagePoints.end(), draw.points);
 	if(computer_udp_exists){
-		computer_udp.sendData(&draw);
+		computer_udp.sendDraw(&draw);
 	}
 	constexpr float CROSSHAIR_LENGTH = 4;
 	worldPoints.insert(worldPoints.end(), {

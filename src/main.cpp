@@ -32,7 +32,6 @@ namespace vision5708Main {
 
 	FILE* videoFifo;
 	
-	cv::Mat currentFrame;
 	std::vector<VisionTarget> lastResults;
 
 	std::chrono::steady_clock clock;
@@ -40,6 +39,8 @@ namespace vision5708Main {
 	
 	std::mutex waitMutex;
 	std::condition_variable condition;
+
+	Streamer streamer;
 	
 	
 	void VisionThread() {
@@ -48,7 +49,7 @@ namespace vision5708Main {
 		
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
-			lastResults = doVision(currentFrame);
+			lastResults = doVision(streamer.getBGRFrame());
 			
 			
 			std::vector<VisionData> calcs;
@@ -148,12 +149,11 @@ namespace vision5708Main {
 	
 	#define VERBOSE
 
-	Streamer streamer;
 	void chldHandler(int arg) {
 		streamer.relaunchGStreamer();
 	}
 
-	constexpr bool DO_DRAWING = false;
+	constexpr bool DO_DRAWING = true;
 	int main(int argc, char** argv) {
 
 		if (argc >= 3) {
@@ -185,7 +185,7 @@ namespace vision5708Main {
 
 		signal(SIGPIPE, SIG_IGN);
 
-		if (!DO_DRAWING) streamer.launchFFmpeg();
+		/*if (!DO_DRAWING) streamer.launchFFmpeg();
 
 		cv::VideoCapture camera;
 		
@@ -217,21 +217,21 @@ namespace vision5708Main {
 		}
 		int imgWidth = currentFrame.cols, imgHeight = currentFrame.rows;
 		cout << "Got first frame. width=" << imgWidth << ", height=" << imgHeight << endl;
-		
+		*/
+		constexpr int imgWidth = 800, imgHeight = 448;
+
 		streamer.start(imgWidth, imgHeight);
 		if (DO_DRAWING) signal(SIGCHLD, &chldHandler);
 		
-		/*Streamer* stcap = &streamer;
-		std::thread strThread([stcap]() {
-			stcap->run();
-		});*/
 		
 		changeCalibResolution(imgWidth, imgHeight);
 
 		std::thread visThread(&VisionThread);
+
+		streamer.run();
 		//pthread_setschedparam(visThread.native_handle(), policy, 
 
-		while (true) {
+		/*while (true) {
 			#ifdef VERBOSE
 			auto frameReadStart = clock.now();
 			#endif
@@ -256,7 +256,7 @@ namespace vision5708Main {
 			condition.notify_one();
 			
 			if (DO_DRAWING) streamer.writeFrame(currentFrame, lastResults);
-		}
+		}*/
 	}
 }
 int main(int argc, char** argv) {
