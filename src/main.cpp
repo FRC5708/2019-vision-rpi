@@ -9,6 +9,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <pthread.h>
 
 #include <mutex>
 #include <condition_variable>
@@ -44,6 +45,11 @@ namespace vision5708Main {
 	
 	
 	void VisionThread() {
+		// give this thread a lower priority
+		errno = 0;
+		nice(5);
+		if (errno != 0) perror("nice");
+
 		DataComm rioComm=DataComm("10.57.8.2");
 
 		
@@ -146,14 +152,11 @@ namespace vision5708Main {
 		for (auto & c: extension) c = toupper(c);
 		return extension == "PNG" || extension == "JPG" || extension == "JPEG";
 	}
-	
-	#define VERBOSE
 
 	void chldHandler(int arg) {
 		streamer.relaunchGStreamer();
 	}
 
-	constexpr bool DO_DRAWING = true;
 	int main(int argc, char** argv) {
 
 		if (argc >= 3) {
@@ -178,90 +181,29 @@ namespace vision5708Main {
 			cerr << "invalid number of arguments" << endl;
 			return 1;
 		}
-
-		#ifdef VERBOSE
 		//verboseMode = true;
-		#endif
 
 		signal(SIGPIPE, SIG_IGN);
 
-		/*if (!DO_DRAWING) streamer.launchFFmpeg();
-
-		cv::VideoCapture camera;
-		
-		// these dont work
-		camera.set(cv::CAP_PROP_FRAME_WIDTH, 800);
-		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 448);
-		
-		int cameraNum = DO_DRAWING ? 0 : 1;
-
-		bool success = false;
-		for (int i=0; !success; ++i) {
-			
-			
-			#ifdef __linux__
-			success = camera.open("/dev/video" + std::to_string(cameraNum), cv::CAP_V4L2);
-			#else
-			success = camera.open(0);
-			#endif
-			cout << "camera opening " << (success? ("succeeded @/dev/video" + std::to_string(cameraNum)) : "failed") << endl;
-			if (!success) usleep(200000); // 200 ms
-		}
-		if(!success){
-			cout << "Camera opening unsuccessful" << endl; 
-			return -1;
-		}
-		
-		while (!camera.read(currentFrame)) {
-			usleep(5000);
-		}
-		int imgWidth = currentFrame.cols, imgHeight = currentFrame.rows;
-		cout << "Got first frame. width=" << imgWidth << ", height=" << imgHeight << endl;
-		*/
 		constexpr int imgWidth = 800, imgHeight = 448;
 
 		streamer.start(imgWidth, imgHeight);
-		if (DO_DRAWING) signal(SIGCHLD, &chldHandler);
+		signal(SIGCHLD, &chldHandler);
 		
 		
 		changeCalibResolution(imgWidth, imgHeight);
 
 		std::thread visThread(&VisionThread);
 
+		// never returns
 		streamer.run([]() {
 			currentFrameTime = clock.now();
 
 			waitMutex.unlock();
 			condition.notify_one();
 		});
-		//pthread_setschedparam(visThread.native_handle(), policy, 
 
-		/*while (true) {
-			#ifdef VERBOSE
-			auto frameReadStart = clock.now();
-			#endif
-
-			camera.grab();
-
-			#ifdef VERBOSE
-			cout << "grabbing frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
-			(clock.now() - frameReadStart).count() << " ms" << endl;
-			frameReadStart = clock.now();
-			#endif
-
-			camera.retrieve(currentFrame);
-
-			#ifdef VERBOSE
-			cout << "retrieving frame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
-			(clock.now() - frameReadStart).count() << " ms" << endl;
-			#endif
-
-			currentFrameTime = clock.now();
-			waitMutex.unlock();
-			condition.notify_one();
-			
-			if (DO_DRAWING) streamer.writeFrame(currentFrame, lastResults);
-		}*/
+		return 0;
 	}
 }
 int main(int argc, char** argv) {

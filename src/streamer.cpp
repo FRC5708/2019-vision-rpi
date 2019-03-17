@@ -84,7 +84,7 @@ void Streamer::launchFFmpeg() {
 
 // https://gist.github.com/thearchitect/96ab846a2dae98329d1617e538fbca3c
 class V4lwriter {
-	int vidsendsiz;
+	unsigned int vidsendsiz;
 	int v4l2lo;
 	int camfd;
 	void* currentBuffer;
@@ -141,7 +141,7 @@ public:
 		
 		std::cout << "buffer count: " << bufrequest.count << std::endl;
 		buffers.resize(bufrequest.count);
-		for (int i = 0; i < bufrequest.count; ++i) {
+		for (unsigned int i = 0; i < bufrequest.count; ++i) {
 			bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			bufferinfo.memory = V4L2_MEMORY_MMAP;
 			bufferinfo.index = i;
@@ -183,7 +183,7 @@ public:
 			exit(1);
 		}
 
-		for (int i = 0; i < bufrequest.count; ++i) {
+		for (unsigned int i = 0; i < bufrequest.count; ++i) {
 			memset(&bufferinfo, 0, sizeof(bufferinfo));
 			bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			bufferinfo.memory = V4L2_MEMORY_MMAP;
@@ -328,7 +328,6 @@ void Streamer::start(int width, int height) {
 			}
 
 			if (close(clientFd) == -1) perror("close");
-
 			
 
 			// wait for client's gstreamer to initialize
