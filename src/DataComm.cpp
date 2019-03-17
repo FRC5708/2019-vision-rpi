@@ -38,7 +38,7 @@ void DataComm::setupSocket() {
     hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
     hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
     
-    int error = getaddrinfo(client_name, "5808", &hints, &addrs);
+    int error = getaddrinfo(client_name, this->port, &hints, &addrs);
     if (error != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
     }
@@ -64,9 +64,11 @@ void DataComm::setupSocket() {
         return;
     }
 }
-DataComm::DataComm(const char* client_name) : client_name(client_name) {
+DataComm::DataComm(const char* client_name, const char* port="5808") : client_name(client_name) {
     setupSocket();
+    this->port=port;
 }
+
 
 void DataComm::sendData(std::vector<VisionData> data, std::chrono::time_point<std::chrono::steady_clock> timeFrom) {
     std::stringstream toSend;

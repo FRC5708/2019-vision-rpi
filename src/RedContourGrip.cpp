@@ -22,7 +22,7 @@ void myThreshold(cv::Mat& input, cv::Mat& bright, cv::Mat& red) {
 		bright.data[i] = (px[2] > 190) * 255;
 		red.data[i] = (px[2] > 130 && px[2] - 30 > px[0] && px[2] - 30 > px[1]) * 255;
 #elif defined(GREEN)
-		bright.data[i] = (px[0] + px[1] + px[2] > 3*240) * 255;
+		bright.data[i] = (px[0] + px[1] + px[2] > 3*225) * 255;
 		red.data[i] = (px[1] > 130 && px[1] - 30 > px[0] && px[1] - 30 > px[2]) * 255;
 #else
 		static_assert(false, "not red or green");

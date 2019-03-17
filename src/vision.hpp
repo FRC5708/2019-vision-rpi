@@ -47,5 +47,3 @@ namespace calib {
 	extern cv::Mat cameraMatrix, distCoeffs;
 	extern int width, height;
 }
-extern DataComm computer_udp;
-extern bool computer_udp_exists=false;

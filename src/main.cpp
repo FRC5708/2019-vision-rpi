@@ -43,7 +43,7 @@ namespace vision5708Main {
 	
 	
 	void VisionThread() {
-		DataComm rioComm=DataComm("10.57.8.2");
+		DataComm rioComm=DataComm("10.57.8.2", "5808");
 
 		
 		while (true) {
@@ -146,7 +146,7 @@ namespace vision5708Main {
 		return extension == "PNG" || extension == "JPG" || extension == "JPEG";
 	}
 	
-	#define VERBOSE
+	//#define VERBOSE
 
 	Streamer streamer;
 	void chldHandler(int arg) {
@@ -179,16 +179,18 @@ namespace vision5708Main {
 			return 1;
 		}
 
-		#ifdef VERBOSE
-		//verboseMode = true;
-		#endif
+		system("/home/pi/bin/run_setup_v4l2loopback");
+		//#ifdef VERBOSE
+		verboseMode = true;
+		//#endif
+
 
 		signal(SIGPIPE, SIG_IGN);
 
 		if (!DO_DRAWING) streamer.launchFFmpeg();
 
 		cv::VideoCapture camera;
-		
+			
 		// these dont work
 		camera.set(cv::CAP_PROP_FRAME_WIDTH, 800);
 		camera.set(cv::CAP_PROP_FRAME_HEIGHT, 448);

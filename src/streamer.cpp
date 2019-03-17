@@ -194,6 +194,8 @@ void Streamer::start(int width, int height) {
 			computer_udp = DataComm(strAddr);
 			computer_udp_exists=true;
 
+			cout << "Starting UDP stream..." << endl;
+
 			handlingLaunchRequest = false;
 		}
 	}).detach();
