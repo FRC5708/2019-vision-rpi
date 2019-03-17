@@ -191,8 +191,8 @@ void Streamer::start(int width, int height) {
 			launchGStreamer(strAddr, atoi(bitrate));
 
 			cout << "Starting UDP stream..." << endl;
-			computer_udp = DataComm(strAddr);
-			computer_udp_exists=true;
+			//computer_udp = DataComm(strAddr);
+			//computer_udp_exists=true;
 
 			cout << "Starting UDP stream..." << endl;
 

@@ -2,7 +2,6 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
-#include "DataComm.h"
 
 struct VisionData {
 	double height;
