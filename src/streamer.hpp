@@ -6,14 +6,7 @@
 
 #include "vision.hpp"
 
-class Streamer {
-	FILE* videoFifo;
-	
-	std::mutex waitLock;
-	std::condition_variable condition;
-	
-	void _writeFrame();
-	
+class Streamer {	
 	cv::Mat image;
 	std::vector<VisionTarget> toDraw;
 	
@@ -27,8 +20,6 @@ public:
 	
 	void start(int width, int height);
 	volatile bool handlingLaunchRequest = false;
-	
-	void writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw);
 	
 	void relaunchGStreamer();
 	

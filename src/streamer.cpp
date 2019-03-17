@@ -352,25 +352,6 @@ void Streamer::start(int width, int height) {
 	V4lwriter::instance.openReader();
 }
 
-void Streamer::_writeFrame() {
-	cv::Mat drawnOn = image.clone();
-	//std::cout << "writing frame" << std::endl;
-	
-	for (auto i = toDraw.begin(); i < toDraw.end(); ++i) {
-		drawVisionPoints(i->drawPoints, drawnOn);
-	}
-	
-	V4lwriter::instance.writeFrame(drawnOn);
-}
-
-void Streamer::writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw) {
-	this->image = image; this->toDraw = toDraw;
-	
-	/*waitLock.unlock();
-	condition.notify_all();*/
-	_writeFrame();
-}
-
 cv::Mat Streamer::getBGRFrame() {
 	cv::Mat frame;
 	cvtColor(V4lwriter::instance.getMat(), frame, cv::COLOR_YUV2BGR_YUYV);
@@ -378,11 +359,7 @@ cv::Mat Streamer::getBGRFrame() {
 }
 
 void Streamer::run(std::function<void(void)> frameNotifier) {
-	/*while (true) {
-		std::unique_lock<std::mutex> uniqueLock(waitLock);
-		condition.wait(uniqueLock);
-		_writeFrame();
-	}*/
+	
 	//std::chrono::steady_clock clock;
 	while (true) {
 		//auto startTime = clock.now();
