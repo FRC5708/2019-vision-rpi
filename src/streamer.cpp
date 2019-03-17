@@ -87,9 +87,10 @@ class V4lwriter {
 	int vidsendsiz;
 	int v4l2lo;
 	int camfd;
-	void* readBuffer;
+	void* currentBuffer;
+	std::vector<void*> buffers;
 	struct v4l2_buffer bufferinfo;
-	
+
 public:
 	int width, height;
 
@@ -120,16 +121,17 @@ public:
 		format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
 		format.fmt.pix.width = width;
 		format.fmt.pix.height = height;
+		format.fmt.pix.field = V4L2_FIELD_INTERLACED;
 		
 		if(ioctl(camfd, VIDIOC_S_FMT, &format) < 0){
 			perror("VIDIOC_S_FMT");
 			exit(1);
 		}
-
+		
 		struct v4l2_requestbuffers bufrequest;
 		bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		bufrequest.memory = V4L2_MEMORY_MMAP;
-		bufrequest.count = 1;
+		bufrequest.count = 2;
 		
 		if(ioctl(camfd, VIDIOC_REQBUFS, &bufrequest) < 0){
 			perror("VIDIOC_REQBUFS");
@@ -137,28 +139,42 @@ public:
 		}
 		memset(&bufferinfo, 0, sizeof(bufferinfo));
 		
-		bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		bufferinfo.memory = V4L2_MEMORY_MMAP;
-		bufferinfo.index = 0;
-		
-		if(ioctl(camfd, VIDIOC_QUERYBUF, &bufferinfo) < 0){
-			perror("VIDIOC_QUERYBUF");
-			exit(1);
+		std::cout << "buffer count: " << bufrequest.count << std::endl;
+		buffers.resize(bufrequest.count);
+		for (int i = 0; i < bufrequest.count; ++i) {
+			bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			bufferinfo.memory = V4L2_MEMORY_MMAP;
+			bufferinfo.index = i;
+			
+			if(ioctl(camfd, VIDIOC_QUERYBUF, &bufferinfo) < 0){
+				perror("VIDIOC_QUERYBUF");
+				exit(1);
+			}
+
+			buffers[i] = mmap(
+				NULL,
+				bufferinfo.length,
+				PROT_READ | PROT_WRITE,
+				MAP_SHARED,
+				camfd,
+				bufferinfo.m.offset
+			);
+			if(buffers[i] == MAP_FAILED){
+				perror("mmap");
+				exit(1);
+			}
+			memset(buffers[i], 0, bufferinfo.length);
 		}
 
-		readBuffer = mmap(
-			NULL,
-			bufferinfo.length,
-			PROT_READ | PROT_WRITE,
-			MAP_SHARED,
-			camfd,
-			bufferinfo.m.offset
-		);
-		if(readBuffer == MAP_FAILED){
-			perror("mmap");
-			exit(1);
-		}
-		memset(readBuffer, 0, bufferinfo.length);
+		// get framerate
+		struct v4l2_frmivalenum frameinterval;
+		frameinterval.index = 0;
+		frameinterval.width = width;
+		frameinterval.height = height;
+		frameinterval.pixel_format = V4L2_PIX_FMT_YUYV;
+		ioctl(camfd, VIDIOC_ENUM_FRAMEINTERVALS, &frameinterval);
+		std::cout << "frame interval: " << frameinterval.discrete.numerator
+		 << "/" << frameinterval.discrete.denominator << std::endl;
 
 		// Activate streaming
 		int type = bufferinfo.type;
@@ -166,22 +182,54 @@ public:
 			perror("VIDIOC_STREAMON");
 			exit(1);
 		}
-	}
-	void grabFrame() {
-		// Put the buffer in the incoming queue.
-		if(ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){
-			perror("VIDIOC_QBUF");
-			exit(1);
+
+		for (int i = 0; i < bufrequest.count; ++i) {
+			memset(&bufferinfo, 0, sizeof(bufferinfo));
+			bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			bufferinfo.memory = V4L2_MEMORY_MMAP;
+			bufferinfo.index = i;
+
+			if(ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){
+				perror("VIDIOC_QBUF");
+				exit(1);
+			}
 		}
-		
+		grabFrame(true);
+	}
+	void grabFrame(bool firstTime = false) {
+		//cv::Mat otherBuffer;
+
+		if (!firstTime) {
+			//otherBuffer = getMat().clone();
+
+			// Put the buffer in the incoming queue.
+			if(ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){
+				perror("VIDIOC_QBUF");
+				exit(1);
+			}
+		}
+
+		memset(&bufferinfo, 0, sizeof(bufferinfo));
+		bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		bufferinfo.memory = V4L2_MEMORY_MMAP;
 		// The buffer's waiting in the outgoing queue.
 		if(ioctl(camfd, VIDIOC_DQBUF, &bufferinfo) < 0){
 			perror("VIDIOC_DQBUF");
 			exit(1);
 		}
+
+		
+		currentBuffer = buffers[bufferinfo.index];
+		//std::cout << "buffer index: " << bufferinfo.index << " addr: " << currentBuffer << std::endl;
+		assert(bufferinfo.length == width*height*2);
+		/*if (!firstTime) {
+			if (memcmp(currentBuffer, otherBuffer.data, width*height*2) == 0) {
+				std::cout << "identical frame" << std::endl;
+			}
+		}*/
 	}
 	cv::Mat getMat() {
-		return cv::Mat(height, width, CV_8UC2, readBuffer);
+		return cv::Mat(height, width, CV_8UC2, currentBuffer);
 	}
 	
 	void openWriter() {
@@ -211,7 +259,6 @@ public:
 	}
 	
 	void writeFrame(cv::Mat& frame) {
-		std::cout << "writing frame" << std::endl;
 		assert(frame.total() * frame.elemSize() == vidsendsiz);
 		
 		if (write(v4l2lo, frame.data, vidsendsiz) == -1) {
@@ -331,20 +378,32 @@ cv::Mat Streamer::getBGRFrame() {
 	return frame;
 }
 
-void Streamer::run() {
+void Streamer::run(std::function<void(void)> frameNotifier) {
 	/*while (true) {
 		std::unique_lock<std::mutex> uniqueLock(waitLock);
 		condition.wait(uniqueLock);
 		_writeFrame();
 	}*/
+	//std::chrono::steady_clock clock;
 	while (true) {
+		//auto startTime = clock.now();
 		V4lwriter::instance.grabFrame();
+		//auto writeStart = clock.now();
+		//std::cout << "grabFrame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+		//	(writeStart - startTime).count() << " ms" << endl;
+
 		cv::Mat drawnOn = V4lwriter::instance.getMat().clone();
 
 		for (auto i = toDraw.begin(); i < toDraw.end(); ++i) {
 			drawVisionPoints(i->drawPoints, drawnOn);
 		}
-		
+
 		V4lwriter::instance.writeFrame(drawnOn);
+
+		//std::cout << "drawing and writing took: " << std::chrono::duration_cast<std::chrono::milliseconds>
+		//	(clock.now() - writeStart).count() << " ms" << endl;
+
+		frameNotifier();
 	}
+	
 }

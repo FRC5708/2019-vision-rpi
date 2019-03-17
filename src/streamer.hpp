@@ -34,7 +34,7 @@ public:
 	
 	cv::Mat getBGRFrame();
 
-	void run(); // run thread
+	void run(std::function<void(void)> frameNotifier); // run thread
 	void launchFFmpeg(); // for loopback video
 };
 extern int clientFd; 

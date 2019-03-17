@@ -228,7 +228,12 @@ namespace vision5708Main {
 
 		std::thread visThread(&VisionThread);
 
-		streamer.run();
+		streamer.run([]() {
+			currentFrameTime = clock.now();
+
+			waitMutex.unlock();
+			condition.notify_one();
+		});
 		//pthread_setschedparam(visThread.native_handle(), policy, 
 
 		/*while (true) {
