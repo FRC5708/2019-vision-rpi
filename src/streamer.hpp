@@ -8,7 +8,6 @@
 
 class Streamer {	
 	cv::Mat image;
-	std::vector<VisionTarget> toDraw;
 	
 	void launchGStreamer(const char* recieveAddress, int bitrate);
 	const char* prevRecvAddr;
@@ -17,6 +16,8 @@ class Streamer {
 	int servFd;
 public:
 	int width, height;
+
+	std::vector<VisionTarget> toDraw;
 	
 	void start(int width, int height);
 	volatile bool handlingLaunchRequest = false;

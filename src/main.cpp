@@ -56,7 +56,8 @@ namespace vision5708Main {
 		while (true) {
 			auto lastFrameTime = currentFrameTime;
 			lastResults = doVision(streamer.getBGRFrame());
-			
+
+			streamer.toDraw = lastResults;
 			
 			std::vector<VisionData> calcs;
 			calcs.reserve(lastResults.size());

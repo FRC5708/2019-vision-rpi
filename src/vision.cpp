@@ -243,9 +243,9 @@ void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
 	cv::Scalar dotColor(0, 255, 255);*/
 
 	cv::Scalar mainColor(0, 0);
-	cv::Scalar rodColor(60, 200);
+	cv::Scalar rodColor(170, 200);
 	cv::Scalar rawPointColor(128, 0);
-	cv::Scalar dotColor(128, 200);
+	cv::Scalar dotColor(255, 255);
 
 
 	for (int i = 0; i < 8; ++i) {

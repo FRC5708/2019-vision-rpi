@@ -131,7 +131,7 @@ public:
 		struct v4l2_requestbuffers bufrequest;
 		bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		bufrequest.memory = V4L2_MEMORY_MMAP;
-		bufrequest.count = 2;
+		bufrequest.count = 3;
 		
 		if(ioctl(camfd, VIDIOC_REQBUFS, &bufrequest) < 0){
 			perror("VIDIOC_REQBUFS");
@@ -199,16 +199,8 @@ public:
 	void grabFrame(bool firstTime = false) {
 		//cv::Mat otherBuffer;
 
-		if (!firstTime) {
-			//otherBuffer = getMat().clone();
-
-			// Put the buffer in the incoming queue.
-			if(ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){
-				perror("VIDIOC_QBUF");
-				exit(1);
-			}
-		}
-
+		struct v4l2_buffer oldbufinfo = bufferinfo;
+		
 		memset(&bufferinfo, 0, sizeof(bufferinfo));
 		bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		bufferinfo.memory = V4L2_MEMORY_MMAP;
@@ -222,11 +214,12 @@ public:
 		currentBuffer = buffers[bufferinfo.index];
 		//std::cout << "buffer index: " << bufferinfo.index << " addr: " << currentBuffer << std::endl;
 		assert(bufferinfo.length == width*height*2);
-		/*if (!firstTime) {
-			if (memcmp(currentBuffer, otherBuffer.data, width*height*2) == 0) {
-				std::cout << "identical frame" << std::endl;
-			}
-		}*/
+
+		// put the old buffer back into the queue
+		if(!firstTime && ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){
+			perror("VIDIOC_QBUF");
+			exit(1);
+		}
 	}
 	cv::Mat getMat() {
 		return cv::Mat(height, width, CV_8UC2, currentBuffer);

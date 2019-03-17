@@ -4,7 +4,7 @@ CXXFLAGS=-g -Wall --std=c++11 -ffast-math $(COMMON_FLAGS) -I/usr/local/include/o
 
 ODIR=obj
 
-%.o: %.cpp
+%.o: %.cpp %.hpp
 	g++ -c -o $@ $< $(CXXFLAGS)
 
 build: main.o RedContourGrip.o vision.o streamer.o DataComm.o
