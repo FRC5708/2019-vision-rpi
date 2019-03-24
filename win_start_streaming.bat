@@ -1,1 +1,2 @@
-wsl.exe start_streaming.sh
+cd "%~dp0"
+wsl.exe ./start_streaming.sh
