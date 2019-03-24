@@ -20,8 +20,9 @@
             "name": "Raspberry Pi",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/pi_include/usr/include/**",
-                "${workspaceFolder}/pi_include/usr/include/arm-linux-gnueabihf/**"
+                "${workspaceFolder}/../pi_include/usr/include/**",
+                "${workspaceFolder}/../pi_include/usr/include/arm-linux-gnueabihf/**",
+                "/usr/local/include/opencv4"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",

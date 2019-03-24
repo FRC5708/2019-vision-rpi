@@ -1,10 +1,14 @@
 #pragma once
+
 #include <unistd.h>
 #include <opencv2/core.hpp>
 #include <mutex>
 #include <condition_variable>
+#include <optional>
 
 #include "vision.hpp"
+#include "DataComm.hpp"
+
 
 class Streamer {	
 	cv::Mat image;
@@ -14,10 +18,13 @@ class Streamer {
 
 	pid_t gstreamerPID = 0, ffmpegPID = 0;
 	int servFd;
+
+	std::vector<VisionTarget>* drawTargets;
+	std::optional<DataComm> computer_udp;
 public:
 	int width, height;
 
-	std::vector<VisionTarget> toDraw;
+	void setDrawTargets(std::vector<VisionTarget>* drawPoints);
 	
 	void start(int width, int height);
 	volatile bool handlingLaunchRequest = false;

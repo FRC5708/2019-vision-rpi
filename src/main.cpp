@@ -25,7 +25,7 @@
 #include "vision.hpp"
 #include "streamer.hpp"
 
-#include "DataComm.h"
+#include "DataComm.hpp"
 
 using std::cout; using std::cerr; using std::endl; using std::string;
 
@@ -57,7 +57,7 @@ namespace vision5708Main {
 			auto lastFrameTime = currentFrameTime;
 			lastResults = doVision(streamer.getBGRFrame());
 
-			streamer.toDraw = lastResults;
+			streamer.setDrawTargets(&lastResults);
 			
 			std::vector<VisionData> calcs;
 			calcs.reserve(lastResults.size());

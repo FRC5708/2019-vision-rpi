@@ -1,5 +1,5 @@
 #include "streamer.hpp"
-#include "DataComm.h"
+#include "DataComm.hpp"
 
 #include <string>
 #include <iostream>
@@ -332,10 +332,7 @@ void Streamer::start(int width, int height) {
 			launchGStreamer(strAddr, atoi(bitrate));
 
 			cout << "Starting UDP stream..." << endl;
-			//computer_udp = DataComm(strAddr);
-			//computer_udp_exists=true;
-
-			cout << "Starting UDP stream..." << endl;
+			computer_udp = DataComm(strAddr, "5806");
 
 			handlingLaunchRequest = false;
 		}
@@ -345,6 +342,11 @@ void Streamer::start(int width, int height) {
 
 	V4lwriter::instance.openWriter();
 	V4lwriter::instance.openReader();
+}
+
+void Streamer::setDrawTargets(std::vector<VisionTarget>* drawTargets) {
+	this->drawTargets = drawTargets;
+	if (computer_udp) computer_udp->sendDraw(&(*drawTargets)[0].drawPoints);
 }
 
 cv::Mat Streamer::getBGRFrame() {
@@ -365,7 +367,7 @@ void Streamer::run(std::function<void(void)> frameNotifier) {
 
 		cv::Mat drawnOn = V4lwriter::instance.getMat().clone();
 
-		for (auto i = toDraw.begin(); i < toDraw.end(); ++i) {
+		for (auto i = drawTargets->begin(); i < drawTargets->end(); ++i) {
 			drawVisionPoints(i->drawPoints, drawnOn);
 		}
 
