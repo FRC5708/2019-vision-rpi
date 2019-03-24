@@ -12,6 +12,7 @@
 		50A4FFF421F281C10083B20A /* grip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 50A4FFF021F281C10083B20A /* grip.cpp */; };
 		50A4FFF521F281C10083B20A /* vision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 50A4FFF321F281C10083B20A /* vision.cpp */; };
 		50A845D521F501B300C30AC2 /* streamer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 50A845D321F501B300C30AC2 /* streamer.cpp */; };
+		50CBD32D2232BC53000ECC58 /* DataComm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 50CBD32C2232BC53000ECC58 /* DataComm.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,8 @@
 		50A845D221F5005C00C30AC2 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		50A845D321F501B300C30AC2 /* streamer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = streamer.cpp; sourceTree = "<group>"; };
 		50A845D421F501B300C30AC2 /* streamer.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = streamer.hpp; sourceTree = "<group>"; };
+		50CBD32B2232BC53000ECC58 /* DataComm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataComm.h; sourceTree = "<group>"; };
+		50CBD32C2232BC53000ECC58 /* DataComm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DataComm.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +91,8 @@
 		50A4FFD821F27C780083B20A /* src */ = {
 			isa = PBXGroup;
 			children = (
+				50CBD32C2232BC53000ECC58 /* DataComm.cpp */,
+				50CBD32B2232BC53000ECC58 /* DataComm.h */,
 				50A4FFDD21F27C780083B20A /* main.cpp */,
 				50A4FFF021F281C10083B20A /* grip.cpp */,
 				50A4FFF121F281C10083B20A /* grip.hpp */,
@@ -178,6 +183,7 @@
 				50A845D521F501B300C30AC2 /* streamer.cpp in Sources */,
 				50A4FFED21F27C780083B20A /* main.cpp in Sources */,
 				505B9A6822076D7A00AB7F99 /* RedContourGrip.cpp in Sources */,
+				50CBD32D2232BC53000ECC58 /* DataComm.cpp in Sources */,
 				50A4FFF521F281C10083B20A /* vision.cpp in Sources */,
 				50A4FFF421F281C10083B20A /* grip.cpp in Sources */,
 			);

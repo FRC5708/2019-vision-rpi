@@ -6,16 +6,8 @@
 
 #include "vision.hpp"
 
-class Streamer {
-	FILE* videoFifo;
-	
-	std::mutex waitLock;
-	std::condition_variable condition;
-	
-	void _writeFrame();
-	
+class Streamer {	
 	cv::Mat image;
-	std::vector<VisionTarget> toDraw;
 	
 	void launchGStreamer(const char* recieveAddress, int bitrate);
 	const char* prevRecvAddr;
@@ -24,15 +16,17 @@ class Streamer {
 	int servFd;
 public:
 	int width, height;
+
+	std::vector<VisionTarget> toDraw;
 	
 	void start(int width, int height);
 	volatile bool handlingLaunchRequest = false;
 	
-	void writeFrame(cv::Mat image, std::vector<VisionTarget>& toDraw);
-	
 	void relaunchGStreamer();
 	
-	void run(); // run thread
+	cv::Mat getBGRFrame();
+
+	void run(std::function<void(void)> frameNotifier); // run thread
 	void launchFFmpeg(); // for loopback video
 };
 extern int clientFd; 
