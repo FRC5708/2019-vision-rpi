@@ -1,13 +1,14 @@
 #!/bin/sh
 
-if [ -z "$PI_ADDR" ]; then PI_ADDR=raspberrypi.local; fi
 if [ -z "$BITRATE" ]; then BITRATE=1000000; fi
 
 if [ -z "$GST_COMMAND" ]; then 
     if [ -f /proc/version ] && grep -q "Microsoft" /proc/version; then
         GST_COMMAND="/mnt/c/gstreamer/1.0/x86_64/bin/gst-launch-1.0.exe"
+        if [ -z "$PI_ADDR" ]; then PI_ADDR=10.57.8.5; fi
     else
         GST_COMMAND="gst-launch-1.0"
+        if [ -z "$PI_ADDR" ]; then PI_ADDR=raspberrypi.local; fi
     fi
 fi
 #timeout 1 nc -ul4 1234 &
