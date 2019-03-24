@@ -332,7 +332,8 @@ void Streamer::start(int width, int height) {
 			launchGStreamer(strAddr, atoi(bitrate));
 
 			cout << "Starting UDP stream..." << endl;
-			computer_udp = DataComm(strAddr, "5806");
+			if (computer_udp) delete computer_udp;
+			computer_udp = new DataComm(strAddr, "5806");
 
 			handlingLaunchRequest = false;
 		}
@@ -346,7 +347,7 @@ void Streamer::start(int width, int height) {
 
 void Streamer::setDrawTargets(std::vector<VisionTarget>* drawTargets) {
 	this->drawTargets = drawTargets;
-	if (computer_udp) computer_udp->sendDraw(&(*drawTargets)[0].drawPoints);
+	//if (computer_udp) computer_udp->sendDraw(&(*drawTargets)[0].drawPoints);
 }
 
 cv::Mat Streamer::getBGRFrame() {

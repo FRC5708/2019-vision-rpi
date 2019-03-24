@@ -4,7 +4,6 @@
 #include <opencv2/core.hpp>
 #include <mutex>
 #include <condition_variable>
-#include <optional>
 
 #include "vision.hpp"
 #include "DataComm.hpp"
@@ -20,7 +19,7 @@ class Streamer {
 	int servFd;
 
 	std::vector<VisionTarget>* drawTargets;
-	std::optional<DataComm> computer_udp;
+	DataComm* computer_udp = nullptr;
 public:
 	int width, height;
 

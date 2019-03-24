@@ -23,13 +23,9 @@
 
 #include "vision.hpp"
 #include "streamer.hpp"
-#include "DataComm.h"
+#include "DataComm.hpp"
 
 using std::cout; using std::cerr; using std::endl; using std::string;
-
-
-bool computer_udp_exists = false;
-DataComm computer_udp;
 
 void DataComm::setupSocket() {
     fd = -1;
