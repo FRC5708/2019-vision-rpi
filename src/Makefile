@@ -7,8 +7,10 @@ ODIR=obj
 %.o: %.cpp %.hpp
 	g++ -c -o $@ $< $(CXXFLAGS)
 
-build: main.o RedContourGrip.o vision.o streamer.o DataComm.o
-	g++ -Wno-psabi $(COMMON_FLAGS) -o ../5708-vision main.o RedContourGrip.o vision.o streamer.o DataComm.o `pkg-config --libs opencv` -pthread
+OBJS=main.o RedContourGrip.o vision.o streamer.o DataComm.o VideoHandler.o
+
+build: $(OBJS)
+	g++ -Wno-psabi $(COMMON_FLAGS) -o ../5708-vision $(OBJS) `pkg-config --libs opencv` -pthread
 
 install:
 	cp ../5708-vision ../5708-vision-copy

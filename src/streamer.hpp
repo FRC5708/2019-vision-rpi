@@ -7,6 +7,7 @@
 
 #include "vision.hpp"
 #include "DataComm.hpp"
+#include "VideoHandler.hpp"
 
 
 class Streamer {	
@@ -20,6 +21,12 @@ class Streamer {
 
 	std::vector<VisionTarget>* drawTargets;
 	DataComm* computer_udp = nullptr;
+
+	VideoWriter videoWriter;
+
+	VideoReader camera;
+	int cameraIdx;
+
 public:
 	int width, height;
 

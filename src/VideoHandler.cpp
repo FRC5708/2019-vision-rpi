@@ -1,0 +1,174 @@
+#include "VideoHandler.hpp"
+
+#include <iostream>
+
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+
+void VideoReader::openReader(int width, int height, const char* file) {
+    this->width = width; this->height = height;
+
+    // http://jwhsmith.net/2014/12/capturing-a-webcam-stream-using-v4l2/
+    // https://jayrambhia.com/blog/capture-v4l2
+
+    camfd = open(file, O_RDWR);
+    if (camfd == -1) {
+        perror("open");
+        exit(1);
+    }
+
+    struct v4l2_capability cap;
+    if(ioctl(camfd, VIDIOC_QUERYCAP, &cap) < 0){
+        perror("VIDIOC_QUERYCAP");
+        exit(1);
+    }
+    if(!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)){
+        fprintf(stderr, "The device does not handle single-planar video capture.\n");
+        exit(1);
+    }
+
+    struct v4l2_format format;
+    format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    format.fmt.pix.width = width;
+    format.fmt.pix.height = height;
+    format.fmt.pix.field = V4L2_FIELD_INTERLACED;
+
+    if(ioctl(camfd, VIDIOC_S_FMT, &format) < 0){
+        perror("VIDIOC_S_FMT");
+        exit(1);
+    }
+
+    struct v4l2_requestbuffers bufrequest;
+    bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    bufrequest.memory = V4L2_MEMORY_MMAP;
+    bufrequest.count = 3;
+
+    if(ioctl(camfd, VIDIOC_REQBUFS, &bufrequest) < 0){
+        perror("VIDIOC_REQBUFS");
+        exit(1);
+    }
+    memset(&bufferinfo, 0, sizeof(bufferinfo));
+
+    std::cout << "buffer count: " << bufrequest.count << std::endl;
+    buffers.resize(bufrequest.count);
+    for (unsigned int i = 0; i < bufrequest.count; ++i) {
+        bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        bufferinfo.memory = V4L2_MEMORY_MMAP;
+        bufferinfo.index = i;
+        
+        if(ioctl(camfd, VIDIOC_QUERYBUF, &bufferinfo) < 0){
+            perror("VIDIOC_QUERYBUF");
+            exit(1);
+        }
+
+        buffers[i] = mmap(
+            NULL,
+            bufferinfo.length,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            camfd,
+            bufferinfo.m.offset
+        );
+        if(buffers[i] == MAP_FAILED){
+            perror("mmap");
+            exit(1);
+        }
+        memset(buffers[i], 0, bufferinfo.length);
+    }
+
+		// get framerate
+		struct v4l2_frmivalenum frameinterval;
+		frameinterval.index = 0;
+		frameinterval.width = width;
+		frameinterval.height = height;
+		frameinterval.pixel_format = V4L2_PIX_FMT_YUYV;
+		ioctl(camfd, VIDIOC_ENUM_FRAMEINTERVALS, &frameinterval);
+		std::cout << "frame interval: " << frameinterval.discrete.numerator
+		 << "/" << frameinterval.discrete.denominator << std::endl;
+
+		// Activate streaming
+		int type = bufferinfo.type;
+		if(ioctl(camfd, VIDIOC_STREAMON, &type) < 0){
+			perror("VIDIOC_STREAMON");
+			exit(1);
+		}
+
+		for (unsigned int i = 0; i < bufrequest.count; ++i) {
+			memset(&bufferinfo, 0, sizeof(bufferinfo));
+			bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			bufferinfo.memory = V4L2_MEMORY_MMAP;
+			bufferinfo.index = i;
+
+			if(ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){
+				perror("VIDIOC_QBUF");
+				exit(1);
+			}
+		}
+		grabFrame(true);
+	}
+
+void VideoReader::grabFrame(bool firstTime) {
+    //cv::Mat otherBuffer;
+
+    struct v4l2_buffer oldbufinfo = bufferinfo;
+    
+    memset(&bufferinfo, 0, sizeof(bufferinfo));
+    bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    bufferinfo.memory = V4L2_MEMORY_MMAP;
+    // The buffer's waiting in the outgoing queue.
+    if(ioctl(camfd, VIDIOC_DQBUF, &bufferinfo) < 0){
+        perror("VIDIOC_DQBUF");
+        exit(1);
+    }
+
+    
+    currentBuffer = buffers[bufferinfo.index];
+    //std::cout << "buffer index: " << bufferinfo.index << " addr: " << currentBuffer << std::endl;
+    assert(bufferinfo.length == width*height*2);
+
+    // put the old buffer back into the queue
+    if(!firstTime && ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){
+        perror("VIDIOC_QBUF");
+        exit(1);
+    }
+}
+cv::Mat VideoReader::getMat() {
+    return cv::Mat(height, width, CV_8UC2, currentBuffer);
+}
+
+
+// https://gist.github.com/thearchitect/96ab846a2dae98329d1617e538fbca3c
+void VideoWriter::openWriter(int width, int height, const char* file) {		
+    v4l2lo = open(file, O_WRONLY);
+    if(v4l2lo < 0) {
+        std::cout << "Error opening v4l2l device: " << strerror(errno);
+        exit(-2);
+    }
+    struct v4l2_format v;
+    int t;
+    v.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+    t = ioctl(v4l2lo, VIDIOC_G_FMT, &v);
+    if( t < 0 ) {
+        exit(t);
+    }
+    v.fmt.pix.width = width;
+    v.fmt.pix.height = height;
+    v.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    vidsendsiz = width * height * 2;
+    v.fmt.pix.sizeimage = vidsendsiz;
+    t = ioctl(v4l2lo, VIDIOC_S_FMT, &v);
+    if( t < 0 ) {
+        exit(t);
+    }
+}
+
+void VideoWriter::writeFrame(cv::Mat& frame) {
+    assert(frame.total() * frame.elemSize() == vidsendsiz);
+    
+    if (write(v4l2lo, frame.data, vidsendsiz) == -1) {
+        perror("writing frame");
+    }
+}
