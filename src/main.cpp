@@ -31,7 +31,8 @@ using std::cout; using std::cerr; using std::endl; using std::string;
 
 namespace vision5708Main {
 
-	FILE* videoFifo;
+	// when false, drastically slows down vision processing
+	volatile bool visionEnabled = false;
 	
 	std::vector<VisionTarget> lastResults;
 
@@ -43,7 +44,58 @@ namespace vision5708Main {
 
 	Streamer streamer;
 	
-	
+	// recieves enable/disable signals from the RIO to conserve thermal capacity
+	// Also set exposure in the future?
+	void ControlSocket() {
+		struct addrinfo hints;
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+		hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+		hints.ai_flags = AI_PASSIVE;   /* For wildcard IP address */
+
+		struct addrinfo *result;
+
+		int error = getaddrinfo(nullptr, "5808", &hints, &result);
+		if (error != 0) {
+			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
+		}
+
+		int sockfd;
+		for (struct addrinfo *rp = result; rp != NULL; rp = rp->ai_next) {
+				sockfd = socket(rp->ai_family, rp->ai_socktype,
+						rp->ai_protocol);
+			if (sockfd != -1) {
+
+				if (bind(sockfd, rp->ai_addr, rp->ai_addrlen) == 0) break;
+				else {
+					perror("failed to bind to control socket");
+					close(sockfd);
+					sockfd = -1;
+				}
+			}
+		}
+		freeaddrinfo(result);
+
+		if (sockfd == -1) {
+			std::cout << "could not connect to control socket" << std::endl;
+		}
+
+		while (true) {
+			char buf[66537];
+			ssize_t recieveSize = recvfrom(sockfd, buf, sizeof(buf) - 1, 
+			0, nullptr, nullptr);
+			if (recieveSize > 0) {
+				string msgStr(buf);
+				if (msgStr.find("ENABLE") != string::npos) visionEnabled = true;
+				if (msgStr.find("DISABLE") != string::npos) visionEnabled = false;
+
+			}
+			else if (recieveSize < 0) {
+				perror("control data recieve error");
+			}
+		}
+	}
+
 	void VisionThread() {
 		// give this thread a lower priority
 		errno = 0;
@@ -73,7 +125,7 @@ namespace vision5708Main {
 			}
 		}
 	}
-
+	
 	void setDefaultCalibParams() {
 		calib::width = 1280; calib::height = 720;
 		
@@ -197,13 +249,20 @@ namespace vision5708Main {
 		changeCalibResolution(imgWidth, imgHeight);
 
 		std::thread visThread(&VisionThread);
+		std::thread controlSockThread(&ControlSocket);
 
 		// never returns
-		streamer.run([]() {
-			currentFrameTime = clock.now();
 
-			waitMutex.unlock();
-			condition.notify_one();
+		streamer.run([]() {
+
+			auto time = clock.now();
+			// if vision is disabled, process one frame every 2 seconds
+			if (visionEnabled || (time - currentFrameTime) > std::chrono::seconds(2)) {
+
+				currentFrameTime = time;
+				waitMutex.unlock();
+				condition.notify_one();
+			}
 		});
 
 		return 0;
