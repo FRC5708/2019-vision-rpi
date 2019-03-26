@@ -83,13 +83,15 @@ void Streamer::launchFFmpeg() {
 string getVideoDeviceWithString(string cmp) {
 
 	FILE* videos = popen(("for I in /sys/class/video4linux/*; do if grep -q '" 
-	+ cmp + "' $I/name; then basename $I; fi; done").c_str(), "r");
+	+ cmp + "' $I/name; then basename $I; exit; fi; done").c_str(), "r");
 
 	char output[1035];
 	string devname;
 	while (fgets(output, sizeof(output), videos) != NULL) {
 		// videoX
 		if (strlen(output) >= 6) devname = output;
+		// remove newlines
+		devname.erase(std::remove(devname.begin(), devname.end(), '\n'), devname.end());
 	}
 	pclose(videos);
 	if (!devname.empty()) return "/dev/" + devname;
@@ -179,9 +181,9 @@ void Streamer::start(int width, int height) {
 	}).detach();
 
 	// TODO
-	visionCameraDev = getVideoDeviceWithString("TODO");
-	secondCameraDev = getVideoDeviceWithString("TODO");
-	loopbackDev = getVideoDeviceWithString("loopback");
+	visionCameraDev = getVideoDeviceWithString("920");
+	secondCameraDev = getVideoDeviceWithString("C525");
+	loopbackDev = getVideoDeviceWithString("Dummy");
 
 	if (visionCameraDev.empty()) {
 		if (!secondCameraDev.empty()) {
@@ -193,13 +195,17 @@ void Streamer::start(int width, int height) {
 			exit(1);
 		}
 	}
+	std::cout << "main camera: " << visionCameraDev << std::endl;
+
 	if (secondCameraDev.empty()) {
 		std::cerr << "Warning: second camera not found" << std::endl;
 	}
+	else std::cout << "second camera: " << visionCameraDev << std::endl;
 	if (loopbackDev.empty()) {
 		std::cerr << "v4l2loopback device not found" << std::endl;
 		exit(1);
 	}
+	else std::cout << "video loopback device: " << visionCameraDev << std::endl;
 
 	camera.openReader(width, height, visionCameraDev.c_str());
 	videoWriter.openWriter(width, height, loopbackDev.c_str());
@@ -229,8 +235,10 @@ void Streamer::run(std::function<void(void)> frameNotifier) {
 
 		cv::Mat drawnOn = camera.getMat().clone();
 
-		for (auto i = drawTargets->begin(); i < drawTargets->end(); ++i) {
-			drawVisionPoints(i->drawPoints, drawnOn);
+		if (drawTargets != nullptr) {
+			for (auto i = drawTargets->begin(); i < drawTargets->end(); ++i) {
+				drawVisionPoints(i->drawPoints, drawnOn);
+			}
 		}
 
 		videoWriter.writeFrame(drawnOn);
