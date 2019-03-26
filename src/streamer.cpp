@@ -23,13 +23,14 @@
 using std::cout; using std::endl; using std::string;
 
 pid_t runCommandAsync(const std::string& cmd, int closeFd) {
-	string execCmd = ("exec " + cmd);
-	cout << "> " << execCmd << endl;
 	pid_t pid = fork();
 	
 	if (pid == 0) {
 		// child
 		close(closeFd);
+
+		string execCmd = ("exec " + cmd);
+		cout << "> " << execCmd << endl;
 		
 		const char *argv[] = {
 			"/bin/sh",
@@ -44,33 +45,36 @@ pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 	else return pid;
 }
 
-void Streamer::relaunchGStreamer() {
-	if (!handlingLaunchRequest) launchGStreamer(prevRecvAddr, 1000000);
+void Streamer::handleCrash(pid_t pid) {
+	if (!handlingLaunchRequest) {
+		for (auto i : gstInstances) {
+			if (i.pid == pid) {
+				runCommandAsync(i.command, servFd);
+			}
+		}
+	}
 }
 
-void Streamer::launchGStreamer(const char* recieveAddress, int bitrate) {
+void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string file) {
 	prevRecvAddr = recieveAddress;
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
-#ifdef __linux__
 	string codec = "omxh264enc";
-	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2";
-#elif defined __APPLE__
-	string codec = "omxh264enc";
-	string gstreamCommand = "/usr/local/bin/gst-launch-1.0 autovideosrc";
-#endif
+	string gstreamCommand = "gst-launch-1.0";
 	
 	//int target_bitrate = 3000000;
 	int port=5809;
 	
 	std::stringstream command;
-	command << gstreamCommand << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
+	command << gstreamCommand << "v4l2src device=" << file << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
 	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
 	<< " host=" << recieveAddress << " port=" << port;
 
 	string strCommand = command.str();
 	
-	gstreamerPID = runCommandAsync(strCommand, servFd);
+	pid_t pid = runCommandAsync(strCommand, servFd);
+
+	gstInstances.push_back({ pid, file, strCommand });
 }
 
 void Streamer::launchFFmpeg() {
@@ -78,7 +82,6 @@ void Streamer::launchFFmpeg() {
 		"ffmpeg -f v4l2 -pix_fmt yuyv422 -video_size  800x448 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2"
 	, servFd);
 }
-
 
 
 void Streamer::start(int width, int height) {
@@ -124,13 +127,15 @@ void Streamer::start(int width, int height) {
 
 			handlingLaunchRequest = true;
 
-			if (gstreamerPID > 0) {
-				cout << "killing previous instance: " << gstreamerPID << "   " << endl;
-				if (kill(gstreamerPID, SIGTERM) == -1) {
+			for (auto i : gstInstances) {
+				
+				cout << "killing previous instance: " << i.pid << "   " << endl;
+				if (kill(i.pid, SIGTERM) == -1) {
 					perror("kill");
 				}
-				waitpid(gstreamerPID, nullptr, 0);
+				waitpid(i.pid, nullptr, 0);
 			}
+			
 			char bitrate[16];
 			ssize_t len = read(clientFd, bitrate, sizeof(bitrate));
 			bitrate[len] = '\0';
@@ -149,7 +154,8 @@ void Streamer::start(int width, int height) {
 			char strAddr[INET6_ADDRSTRLEN];
 			getnameinfo((struct sockaddr *) &clientAddr, sizeof(clientAddr), strAddr,sizeof(strAddr),
     		0,0,NI_NUMERICHOST);
-			launchGStreamer(strAddr, atoi(bitrate));
+			launchGStreamer(strAddr, atoi(bitrate), "/dev/video2");
+			launchGStreamer(strAddr, atoi(bitrate), "/dev/video1");
 
 			cout << "Starting UDP stream..." << endl;
 			if (computer_udp) delete computer_udp;

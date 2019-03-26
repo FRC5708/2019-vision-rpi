@@ -154,8 +154,8 @@ namespace vision5708Main {
 		return extension == "PNG" || extension == "JPG" || extension == "JPEG";
 	}
 
-	void chldHandler(int arg) {
-		streamer.relaunchGStreamer();
+	void chldHandler(int sig, siginfo_t *info, void *ucontext) {
+		streamer.handleCrash(info->si_pid);
 	}
 
 	int main(int argc, char** argv) {
@@ -191,7 +191,15 @@ namespace vision5708Main {
 		constexpr int imgWidth = 800, imgHeight = 448;
 
 		streamer.start(imgWidth, imgHeight);
-		signal(SIGCHLD, &chldHandler);
+
+		struct sigaction sa;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_RESTART | SA_NOCLDSTOP | SA_SIGINFO;
+		sa.sa_sigaction = &chldHandler;
+		if (sigaction(SIGCHLD, &sa, 0) == -1) {
+			perror("sigaction");
+			exit(1);
+		}
 		
 		
 		changeCalibResolution(imgWidth, imgHeight);

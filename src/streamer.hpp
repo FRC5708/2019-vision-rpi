@@ -12,11 +12,19 @@
 
 class Streamer {	
 	cv::Mat image;
+
+	struct GstInstance {
+		pid_t pid;
+		std::string file;
+		std::string command;
+	};
+	std::vector<GstInstance> gstInstances;
 	
-	void launchGStreamer(const char* recieveAddress, int bitrate);
+	volatile bool handlingLaunchRequest = false;
+	void launchGStreamer(const char* recieveAddress, int bitrate, std::string file);
 	const char* prevRecvAddr;
 
-	pid_t gstreamerPID = 0, ffmpegPID = 0;
+	pid_t ffmpegPID = 0;
 	int servFd;
 
 	std::vector<VisionTarget>* drawTargets;
@@ -33,9 +41,8 @@ public:
 	void setDrawTargets(std::vector<VisionTarget>* drawPoints);
 	
 	void start(int width, int height);
-	volatile bool handlingLaunchRequest = false;
 	
-	void relaunchGStreamer();
+	void handleCrash(pid_t pid);
 	
 	cv::Mat getBGRFrame();
 
