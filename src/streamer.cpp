@@ -23,13 +23,14 @@
 using std::cout; using std::endl; using std::string;
 
 pid_t runCommandAsync(const std::string& cmd, int closeFd) {
-	string execCmd = ("exec " + cmd);
-	cout << "> " << execCmd << endl;
 	pid_t pid = fork();
 	
 	if (pid == 0) {
 		// child
 		close(closeFd);
+
+		string execCmd = ("exec " + cmd);
+		cout << "> " << execCmd << endl;
 		
 		const char *argv[] = {
 			"/bin/sh",
@@ -44,33 +45,32 @@ pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 	else return pid;
 }
 
-void Streamer::relaunchGStreamer() {
-	if (!handlingLaunchRequest) launchGStreamer(prevRecvAddr, 1000000);
+void Streamer::handleCrash(pid_t pid) {
+	if (!handlingLaunchRequest) {
+		for (auto i : gstInstances) {
+			if (i.pid == pid) {
+				runCommandAsync(i.command, servFd);
+			}
+		}
+	}
 }
 
-void Streamer::launchGStreamer(const char* recieveAddress, int bitrate) {
-	prevRecvAddr = recieveAddress;
+void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string port, string file) {
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
-#ifdef __linux__
 	string codec = "omxh264enc";
-	string gstreamCommand = "gst-launch-1.0 v4l2src device=/dev/video2";
-#elif defined __APPLE__
-	string codec = "omxh264enc";
-	string gstreamCommand = "/usr/local/bin/gst-launch-1.0 autovideosrc";
-#endif
-	
-	//int target_bitrate = 3000000;
-	int port=5809;
+	string gstreamCommand = "gst-launch-1.0";
 	
 	std::stringstream command;
-	command << gstreamCommand << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
+	command << gstreamCommand << "v4l2src device=" << file << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
 	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
 	<< " host=" << recieveAddress << " port=" << port;
 
 	string strCommand = command.str();
 	
-	gstreamerPID = runCommandAsync(strCommand, servFd);
+	pid_t pid = runCommandAsync(strCommand, servFd);
+
+	gstInstances.push_back({ pid, file, strCommand });
 }
 
 void Streamer::launchFFmpeg() {
@@ -80,6 +80,23 @@ void Streamer::launchFFmpeg() {
 }
 
 
+string getVideoDeviceWithString(string cmp) {
+
+	FILE* videos = popen(("for I in /sys/class/video4linux/*; do if grep -q '" 
+	+ cmp + "' $I/name; then basename $I; exit; fi; done").c_str(), "r");
+
+	char output[1035];
+	string devname;
+	while (fgets(output, sizeof(output), videos) != NULL) {
+		// videoX
+		if (strlen(output) >= 6) devname = output;
+		// remove newlines
+		devname.erase(std::remove(devname.begin(), devname.end(), '\n'), devname.end());
+	}
+	pclose(videos);
+	if (!devname.empty()) return "/dev/" + devname;
+	else return "";
+}
 
 void Streamer::start(int width, int height) {
 	this->width = width; this->height = height;
@@ -124,13 +141,15 @@ void Streamer::start(int width, int height) {
 
 			handlingLaunchRequest = true;
 
-			if (gstreamerPID > 0) {
-				cout << "killing previous instance: " << gstreamerPID << "   " << endl;
-				if (kill(gstreamerPID, SIGTERM) == -1) {
+			for (auto i : gstInstances) {
+				
+				cout << "killing previous instance: " << i.pid << "   " << endl;
+				if (kill(i.pid, SIGTERM) == -1) {
 					perror("kill");
 				}
-				waitpid(gstreamerPID, nullptr, 0);
+				waitpid(i.pid, nullptr, 0);
 			}
+			
 			char bitrate[16];
 			ssize_t len = read(clientFd, bitrate, sizeof(bitrate));
 			bitrate[len] = '\0';
@@ -149,7 +168,9 @@ void Streamer::start(int width, int height) {
 			char strAddr[INET6_ADDRSTRLEN];
 			getnameinfo((struct sockaddr *) &clientAddr, sizeof(clientAddr), strAddr,sizeof(strAddr),
     		0,0,NI_NUMERICHOST);
-			launchGStreamer(strAddr, atoi(bitrate));
+
+			launchGStreamer(strAddr, atoi(bitrate), "5809", loopbackDev);
+			if (!secondCameraDev.empty()) launchGStreamer(strAddr, atoi(bitrate), "5805", secondCameraDev);
 
 			cout << "Starting UDP stream..." << endl;
 			if (computer_udp) delete computer_udp;
@@ -159,8 +180,35 @@ void Streamer::start(int width, int height) {
 		}
 	}).detach();
 
-	camera.openReader(width, height, "/dev/video0");
-	videoWriter.openWriter(width, height, "/dev/video2");
+	// TODO
+	visionCameraDev = getVideoDeviceWithString("920");
+	secondCameraDev = getVideoDeviceWithString("C525");
+	loopbackDev = getVideoDeviceWithString("Dummy");
+
+	if (visionCameraDev.empty()) {
+		if (!secondCameraDev.empty()) {
+			visionCameraDev = secondCameraDev;
+			secondCameraDev = "";
+		}
+		else {
+			std::cerr << "Camera not found" << std::endl;
+			exit(1);
+		}
+	}
+	std::cout << "main camera: " << visionCameraDev << std::endl;
+
+	if (secondCameraDev.empty()) {
+		std::cerr << "Warning: second camera not found" << std::endl;
+	}
+	else std::cout << "second camera: " << visionCameraDev << std::endl;
+	if (loopbackDev.empty()) {
+		std::cerr << "v4l2loopback device not found" << std::endl;
+		exit(1);
+	}
+	else std::cout << "video loopback device: " << visionCameraDev << std::endl;
+
+	camera.openReader(width, height, visionCameraDev.c_str());
+	videoWriter.openWriter(width, height, loopbackDev.c_str());
 }
 
 void Streamer::setDrawTargets(std::vector<VisionTarget>* drawTargets) {
@@ -187,8 +235,10 @@ void Streamer::run(std::function<void(void)> frameNotifier) {
 
 		cv::Mat drawnOn = camera.getMat().clone();
 
-		for (auto i = drawTargets->begin(); i < drawTargets->end(); ++i) {
-			drawVisionPoints(i->drawPoints, drawnOn);
+		if (drawTargets != nullptr) {
+			for (auto i = drawTargets->begin(); i < drawTargets->end(); ++i) {
+				drawVisionPoints(i->drawPoints, drawnOn);
+			}
 		}
 
 		videoWriter.writeFrame(drawnOn);
