@@ -55,15 +55,11 @@ void Streamer::handleCrash(pid_t pid) {
 	}
 }
 
-void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string file) {
-	prevRecvAddr = recieveAddress;
+void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string port, string file) {
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
 	string codec = "omxh264enc";
 	string gstreamCommand = "gst-launch-1.0";
-	
-	//int target_bitrate = 3000000;
-	int port=5809;
 	
 	std::stringstream command;
 	command << gstreamCommand << "v4l2src device=" << file << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
@@ -83,6 +79,22 @@ void Streamer::launchFFmpeg() {
 	, servFd);
 }
 
+
+string getVideoDeviceWithString(string cmp) {
+
+	FILE* videos = popen(("for I in /sys/class/video4linux/*; do if grep -q '" 
+	+ cmp + "' $I/name; then basename $I; fi; done").c_str(), "r");
+
+	char output[1035];
+	string devname;
+	while (fgets(output, sizeof(output), videos) != NULL) {
+		// videoX
+		if (strlen(output) >= 6) devname = output;
+	}
+	pclose(videos);
+	if (!devname.empty()) return "/dev/" + devname;
+	else return "";
+}
 
 void Streamer::start(int width, int height) {
 	this->width = width; this->height = height;
@@ -154,8 +166,9 @@ void Streamer::start(int width, int height) {
 			char strAddr[INET6_ADDRSTRLEN];
 			getnameinfo((struct sockaddr *) &clientAddr, sizeof(clientAddr), strAddr,sizeof(strAddr),
     		0,0,NI_NUMERICHOST);
-			launchGStreamer(strAddr, atoi(bitrate), "/dev/video2");
-			launchGStreamer(strAddr, atoi(bitrate), "/dev/video1");
+
+			launchGStreamer(strAddr, atoi(bitrate), "5809", loopbackDev);
+			if (!secondCameraDev.empty()) launchGStreamer(strAddr, atoi(bitrate), "5805", secondCameraDev);
 
 			cout << "Starting UDP stream..." << endl;
 			if (computer_udp) delete computer_udp;
@@ -165,8 +178,31 @@ void Streamer::start(int width, int height) {
 		}
 	}).detach();
 
-	camera.openReader(width, height, "/dev/video0");
-	videoWriter.openWriter(width, height, "/dev/video2");
+	// TODO
+	visionCameraDev = getVideoDeviceWithString("TODO");
+	secondCameraDev = getVideoDeviceWithString("TODO");
+	loopbackDev = getVideoDeviceWithString("loopback");
+
+	if (visionCameraDev.empty()) {
+		if (!secondCameraDev.empty()) {
+			visionCameraDev = secondCameraDev;
+			secondCameraDev = "";
+		}
+		else {
+			std::cerr << "Camera not found" << std::endl;
+			exit(1);
+		}
+	}
+	if (secondCameraDev.empty()) {
+		std::cerr << "Warning: second camera not found" << std::endl;
+	}
+	if (loopbackDev.empty()) {
+		std::cerr << "v4l2loopback device not found" << std::endl;
+		exit(1);
+	}
+
+	camera.openReader(width, height, visionCameraDev.c_str());
+	videoWriter.openWriter(width, height, loopbackDev.c_str());
 }
 
 void Streamer::setDrawTargets(std::vector<VisionTarget>* drawTargets) {

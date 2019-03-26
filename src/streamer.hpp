@@ -21,8 +21,9 @@ class Streamer {
 	std::vector<GstInstance> gstInstances;
 	
 	volatile bool handlingLaunchRequest = false;
-	void launchGStreamer(const char* recieveAddress, int bitrate, std::string file);
-	const char* prevRecvAddr;
+	void launchGStreamer(const char* recieveAddress, int bitrate, string port, std::string file);
+
+	std::string visionCameraDev, secondCameraDev, loopbackDev;
 
 	pid_t ffmpegPID = 0;
 	int servFd;
