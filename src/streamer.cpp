@@ -62,7 +62,7 @@ void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string p
 	string gstreamCommand = "gst-launch-1.0";
 	
 	std::stringstream command;
-	command << gstreamCommand << "v4l2src device=" << file << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
+	command << gstreamCommand << " v4l2src device=" << file << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
 	" control-rate=variable ! video/x-h264, width=" << width << ",height=" << height << ",framerate=30/1,profile=high ! rtph264pay ! gdppay ! udpsink"
 	<< " host=" << recieveAddress << " port=" << port;
 

@@ -49,13 +49,13 @@ namespace vision5708Main {
 	void ControlSocket() {
 		struct addrinfo hints;
 		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+		hints.ai_family = AF_INET;
 		hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
 		hints.ai_flags = AI_PASSIVE;   /* For wildcard IP address */
 
 		struct addrinfo *result;
 
-		int error = getaddrinfo(nullptr, "5808", &hints, &result);
+		int error = getaddrinfo(nullptr, "5805", &hints, &result);
 		if (error != 0) {
 			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
 		}
@@ -85,6 +85,7 @@ namespace vision5708Main {
 			ssize_t recieveSize = recvfrom(sockfd, buf, sizeof(buf) - 1, 
 			0, nullptr, nullptr);
 			if (recieveSize > 0) {
+				buf[recieveSize] = '\0';
 				string msgStr(buf);
 				if (msgStr.find("ENABLE") != string::npos) visionEnabled = true;
 				if (msgStr.find("DISABLE") != string::npos) visionEnabled = false;
@@ -93,6 +94,7 @@ namespace vision5708Main {
 			else if (recieveSize < 0) {
 				perror("control data recieve error");
 			}
+			else std::cerr << "empty packet??" << std::endl;
 		}
 	}
 
