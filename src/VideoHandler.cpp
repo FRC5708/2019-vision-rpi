@@ -112,8 +112,6 @@ void VideoReader::openReader(int width, int height, const char* file) {
 
 void VideoReader::grabFrame(bool firstTime) {
     //cv::Mat otherBuffer;
-
-    struct v4l2_buffer oldbufinfo = bufferinfo;
     
     memset(&bufferinfo, 0, sizeof(bufferinfo));
     bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -127,7 +125,7 @@ void VideoReader::grabFrame(bool firstTime) {
     
     currentBuffer = buffers[bufferinfo.index];
     //std::cout << "buffer index: " << bufferinfo.index << " addr: " << currentBuffer << std::endl;
-    assert(bufferinfo.length == width*height*2);
+    assert((signed) bufferinfo.length == width*height*2);
 
     // put the old buffer back into the queue
     if(!firstTime && ioctl(camfd, VIDIOC_QBUF, &bufferinfo) < 0){

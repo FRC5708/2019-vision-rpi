@@ -36,7 +36,6 @@ struct VisionTarget {
 	cv::Rect left, right;
 };
 
-void testSideways();
 std::vector<VisionTarget> doVision(cv::Mat image);
 
 extern bool isImageTesting;
