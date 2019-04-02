@@ -20,6 +20,8 @@ public:
 	cv::Mat getMat();
 
     void grabFrame(bool firstTime = false);
+
+	void setExposureVals(bool isAuto, int exposure);
 };
 
 class VideoWriter {

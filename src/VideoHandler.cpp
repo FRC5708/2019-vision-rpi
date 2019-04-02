@@ -135,6 +135,74 @@ void VideoReader::grabFrame(bool firstTime) {
 }
 cv::Mat VideoReader::getMat() {
     return cv::Mat(height, width, CV_8UC2, currentBuffer);
+}   
+/*void VideoReader::setExposure(int value) {
+    struct v4l2_ext_controls controls;
+    memset(&controls, 0, sizeof(controls));
+    if (ioctl(camfd, VIDIOC_G_EXT_CTRLS, &controls) < 0) {
+        perror ("setExposure: VIDIOC_G_EXT_CTRLS");
+        return;
+    }
+
+    for (unsigned i = 0; i < controls.count; ++i) {
+        switch (controls.controls[i].id) {
+        case V4L2_CID_EXPOSURE_AUTO:
+            controls.controls[i].value = V4L2_EXPOSURE_MANUAL;
+
+         case V4L2_CID_EXPOSURE_ABSOLUTE: 
+            controls.controls[i].value = value;
+        } 
+    }
+
+    if (ioctl(camfd, VIDIOC_S_EXT_CTRLS, &controls) < 0) {
+        perror("setExposure: VIDIOC_S_EXT_CTRLS");
+    }
+}*/
+void VideoReader::setExposureVals(bool isAuto, int exposure) {
+    /*struct v4l2_ext_controls controls;
+    memset(&controls, 0, sizeof(controls));
+    struct v4l2_ext_control ctrlArray[30];
+    memset(&ctrlArray, 0, sizeof(ctrlArray));
+
+    controls.controls = ctrlArray;
+    controls.count = sizeof(ctrlArray) / sizeof(v4l2_ext_control);
+    controls.which = V4L2_CTRL_WHICH_CUR_VAL;
+
+    if (ioctl(camfd, VIDIOC_G_EXT_CTRLS, &controls) < 0) {
+        perror ("resetExposure: VIDIOC_G_EXT_CTRLS");
+        return;
+    }
+    std::cout << "controls count: " << controls.count << std::endl;
+
+    for (unsigned i = 0; i < controls.count; ++i) {
+        switch (controls.controls[i].id == V4L2_CID_EXPOSURE_AUTO) {
+            controls.controls[i].value = V4L2_EXPOSURE_AUTO;
+        }
+    }
+    if (ioctl(camfd, VIDIOC_S_EXT_CTRLS, &controls) < 0) {
+        perror("resetExposure: VIDIOC_S_EXT_CTRLS");
+    }*/
+    struct v4l2_ext_controls controls;
+    memset(&controls, 0, sizeof(controls));
+    struct v4l2_ext_control ctrlArray[2];
+    memset(&ctrlArray, 0, sizeof(ctrlArray));
+
+    controls.controls = ctrlArray;
+    // if exposure is auto, ignore exposure value
+    controls.count = isAuto ? 1 : 2;
+    controls.which = V4L2_CTRL_WHICH_CUR_VAL;
+    controls.ctrl_class = V4L2_CTRL_CLASS_CAMERA;
+
+    ctrlArray[0].id = V4L2_CID_EXPOSURE_AUTO;
+    ctrlArray[1].id = V4L2_CID_EXPOSURE_ABSOLUTE;
+
+    // V4L2_EXPOSURE_AUTO does not work
+    ctrlArray[0].value = (isAuto ? V4L2_EXPOSURE_APERTURE_PRIORITY : V4L2_EXPOSURE_MANUAL);
+    ctrlArray[1].value = exposure;
+
+    if (ioctl(camfd, VIDIOC_S_EXT_CTRLS, &controls) < 0) {
+        perror("VIDIOC_S_EXT_CTRLS");
+    }
 }
 
 

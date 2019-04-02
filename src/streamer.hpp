@@ -49,5 +49,8 @@ public:
 
 	void run(std::function<void(void)> frameNotifier); // run thread
 	void launchFFmpeg(); // for loopback video
+
+	bool lowExposure = false;
+	void setLowExposure(bool value);
 };
 extern int clientFd; 

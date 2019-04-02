@@ -205,7 +205,7 @@ void Streamer::start(int width, int height) {
 		std::cerr << "v4l2loopback device not found" << std::endl;
 		exit(1);
 	}
-	else std::cout << "video loopback device: " << visionCameraDev << std::endl;
+	else std::cout << "video loopback device: " << loopbackDev << std::endl;
 
 	camera.openReader(width, height, visionCameraDev.c_str());
 	videoWriter.openWriter(width, height, loopbackDev.c_str());
@@ -223,10 +223,22 @@ cv::Mat Streamer::getBGRFrame() {
 	return frame;
 }
 
+void Streamer::setLowExposure(bool value) {
+	if (value != lowExposure) {
+		lowExposure = value;
+		if (lowExposure) {
+			// probably could be lower, but it's probably sufficent
+			camera.setExposureVals(false, 50);
+		}
+		else camera.setExposureVals(true, 50);
+	}
+}
+
 void Streamer::run(std::function<void(void)> frameNotifier) {
 	
 	//std::chrono::steady_clock clock;
 	while (true) {
+
 		//auto startTime = clock.now();
 		camera.grabFrame();
 		//auto writeStart = clock.now();

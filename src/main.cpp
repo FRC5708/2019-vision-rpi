@@ -49,7 +49,7 @@ namespace vision5708Main {
 	void ControlSocket() {
 		struct addrinfo hints;
 		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = AF_INET;
+		hints.ai_family = AF_UNSPEC;
 		hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
 		hints.ai_flags = AI_PASSIVE;   /* For wildcard IP address */
 
@@ -86,9 +86,12 @@ namespace vision5708Main {
 			0, nullptr, nullptr);
 			if (recieveSize > 0) {
 				buf[recieveSize] = '\0';
+				cout << buf;
 				string msgStr(buf);
 				if (msgStr.find("ENABLE") != string::npos) visionEnabled = true;
 				if (msgStr.find("DISABLE") != string::npos) visionEnabled = false;
+				if (msgStr.find("DRIVEON") != string::npos) streamer.setLowExposure(true);
+				if (msgStr.find("DRIVEOFF") != string::npos) streamer.setLowExposure(false);
 
 			}
 			else if (recieveSize < 0) {
