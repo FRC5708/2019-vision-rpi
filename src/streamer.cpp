@@ -98,8 +98,44 @@ string getVideoDeviceWithString(string cmp) {
 	else return "";
 }
 
-void Streamer::start(int width, int height) {
-	this->width = width; this->height = height;
+void Streamer::start() {
+	
+
+	visionCameraDev = getVideoDeviceWithString("920");
+	secondCameraDev = getVideoDeviceWithString("C525");
+	loopbackDev = getVideoDeviceWithString("Dummy");
+
+	if (secondCameraDev.empty()) {
+		std::cerr << "Warning: second camera not found" << std::endl;
+	}
+	if (visionCameraDev.empty()) {
+		if (!secondCameraDev.empty()) {
+			visionCameraDev = secondCameraDev;
+			secondCameraDev = "";
+			std::cerr << "Warning: Main Camera not found. Using second camera as main camera." << std::endl;
+		}
+		else {
+			std::cerr << "Camera not found" << std::endl;
+			exit(1);
+		}
+	}
+	std::cout << "main camera: " << visionCameraDev << std::endl;
+
+	if (secondCameraDev.empty()) {
+		this->width = 800; this->height = 448;
+	}
+	else {
+		std::cout << "second camera: " << secondCameraDev << std::endl;
+		this->width = 640; this->height = 360;
+	}
+	if (loopbackDev.empty()) {
+		std::cerr << "v4l2loopback device not found" << std::endl;
+		exit(1);
+	}
+	else std::cout << "video loopback device: " << loopbackDev << std::endl;
+
+	camera.openReader(width, height, visionCameraDev.c_str());
+	videoWriter.openWriter(width, height, loopbackDev.c_str());
 
 	std::thread([this]() {
 		
@@ -179,36 +215,7 @@ void Streamer::start(int width, int height) {
 			handlingLaunchRequest = false;
 		}
 	}).detach();
-
-	// TODO
-	visionCameraDev = getVideoDeviceWithString("920");
-	secondCameraDev = getVideoDeviceWithString("C525");
-	loopbackDev = getVideoDeviceWithString("Dummy");
-
-	if (visionCameraDev.empty()) {
-		if (!secondCameraDev.empty()) {
-			visionCameraDev = secondCameraDev;
-			secondCameraDev = "";
-		}
-		else {
-			std::cerr << "Camera not found" << std::endl;
-			exit(1);
-		}
-	}
-	std::cout << "main camera: " << visionCameraDev << std::endl;
-
-	if (secondCameraDev.empty()) {
-		std::cerr << "Warning: second camera not found" << std::endl;
-	}
-	else std::cout << "second camera: " << visionCameraDev << std::endl;
-	if (loopbackDev.empty()) {
-		std::cerr << "v4l2loopback device not found" << std::endl;
-		exit(1);
-	}
-	else std::cout << "video loopback device: " << loopbackDev << std::endl;
-
-	camera.openReader(width, height, visionCameraDev.c_str());
-	videoWriter.openWriter(width, height, loopbackDev.c_str());
+	
 }
 
 void Streamer::setDrawTargets(std::vector<VisionTarget>* drawTargets) {

@@ -245,9 +245,7 @@ namespace vision5708Main {
 
 		signal(SIGPIPE, SIG_IGN);
 
-		constexpr int imgWidth = 800, imgHeight = 448;
-
-		streamer.start(imgWidth, imgHeight);
+		streamer.start();
 
 		struct sigaction sa;
 		sigemptyset(&sa.sa_mask);
@@ -259,7 +257,7 @@ namespace vision5708Main {
 		}
 		
 		
-		changeCalibResolution(imgWidth, imgHeight);
+		changeCalibResolution(streamer.width, streamer.height);
 
 		std::thread visThread(&VisionThread);
 		std::thread controlSockThread(&ControlSocket);

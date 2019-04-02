@@ -41,7 +41,7 @@ public:
 
 	void setDrawTargets(std::vector<VisionTarget>* drawPoints);
 	
-	void start(int width, int height);
+	void start();
 	
 	void handleCrash(pid_t pid);
 	
