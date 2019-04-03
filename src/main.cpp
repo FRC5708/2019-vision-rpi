@@ -39,7 +39,7 @@ namespace vision5708Main {
 	std::chrono::steady_clock clock;
 	auto currentFrameTime = clock.now();
 	
-	std::mutex waitMutex;
+	std::mutex waitMutex; 
 	std::condition_variable condition;
 
 	Streamer streamer;
@@ -86,7 +86,7 @@ namespace vision5708Main {
 			0, nullptr, nullptr);
 			if (recieveSize > 0) {
 				buf[recieveSize] = '\0';
-				cout << buf;
+				cout << buf << endl;
 				string msgStr(buf);
 				if (msgStr.find("ENABLE") != string::npos) visionEnabled = true;
 				if (msgStr.find("DISABLE") != string::npos) visionEnabled = false;

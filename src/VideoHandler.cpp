@@ -44,7 +44,7 @@ void VideoReader::openReader(int width, int height, const char* file) {
     struct v4l2_requestbuffers bufrequest;
     bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bufrequest.memory = V4L2_MEMORY_MMAP;
-    bufrequest.count = 3;
+    bufrequest.count = 4;
 
     if(ioctl(camfd, VIDIOC_REQBUFS, &bufrequest) < 0){
         perror("VIDIOC_REQBUFS");

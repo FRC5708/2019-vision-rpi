@@ -11,7 +11,7 @@ struct VisionData {
 	// Angles: left/down=negative, right/up=positive
 	
 	// angle of tapes from directly facing robot.
-	// Positive when robot is left of tapes while facing them from the front.
+	// Positive when tapes are turned counter-clockwise relative to robot.
 	double tapeAngle;
 	
 	// angle of robot from directly facing tapes.

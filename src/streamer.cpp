@@ -219,7 +219,7 @@ void Streamer::start() {
 }
 
 void Streamer::setDrawTargets(std::vector<VisionTarget>* drawTargets) {
-	this->drawTargets = drawTargets;
+	this->drawTargets = *drawTargets;
 	//if (computer_udp) computer_udp->sendDraw(&(*drawTargets)[0].drawPoints);
 }
 
@@ -254,11 +254,11 @@ void Streamer::run(std::function<void(void)> frameNotifier) {
 
 		cv::Mat drawnOn = camera.getMat().clone();
 
-		if (drawTargets != nullptr) {
-			for (auto i = drawTargets->begin(); i < drawTargets->end(); ++i) {
-				drawVisionPoints(i->drawPoints, drawnOn);
-			}
+		
+		for (auto i = drawTargets.begin(); i < drawTargets.end(); ++i) {
+			drawVisionPoints(i->drawPoints, drawnOn);
 		}
+	
 
 		videoWriter.writeFrame(drawnOn);
 

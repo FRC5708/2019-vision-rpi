@@ -28,7 +28,7 @@ class Streamer {
 	pid_t ffmpegPID = 0;
 	int servFd;
 
-	std::vector<VisionTarget>* drawTargets;
+	std::vector<VisionTarget> drawTargets;
 	DataComm* computer_udp = nullptr;
 
 	VideoWriter videoWriter;
