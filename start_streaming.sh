@@ -16,7 +16,7 @@ fi
 
 if echo $BITRATE | nc  $PI_ADDR 5807; then
     $GST_COMMAND udpsrc port=5809 ! gdpdepay ! rtph264depay ! avdec_h264 ! autovideosink sync=false &
-    $GST_COMMAND udpsrc port=5805 ! gdpdepay ! rtph264depay ! avdec_h264 ! autovideosink sync=false
+    $GST_COMMAND udpsrc port=5804 ! gdpdepay ! rtph264depay ! avdec_h264 ! autovideosink sync=false
 else
     echo "Could not connect to rPi"
     exit 1

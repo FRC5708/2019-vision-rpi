@@ -60,6 +60,8 @@ void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string p
 	
 	string codec = "omxh264enc";
 	string gstreamCommand = "gst-launch-1.0";
+
+	if (!secondCameraDev.empty()) bitrate /= 2;
 	
 	std::stringstream command;
 	command << gstreamCommand << " v4l2src device=" << file << " ! videoscale ! videoconvert ! queue ! " << codec << " target-bitrate=" << bitrate <<
@@ -206,7 +208,7 @@ void Streamer::start() {
     		0,0,NI_NUMERICHOST);
 
 			launchGStreamer(strAddr, atoi(bitrate), "5809", loopbackDev);
-			if (!secondCameraDev.empty()) launchGStreamer(strAddr, atoi(bitrate), "5805", secondCameraDev);
+			if (!secondCameraDev.empty()) launchGStreamer(strAddr, atoi(bitrate), "5804", secondCameraDev);
 
 			cout << "Starting UDP stream..." << endl;
 			if (computer_udp) delete computer_udp;
