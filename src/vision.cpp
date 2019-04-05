@@ -288,17 +288,18 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	double pixMaxError = std::max(3, 
 		((left.bottomright.y - left.topleft.y) + (right.bottomleft.y - right.topright.y))/2 / 6);
 	//constexpr double radMaxCameraPitch = 40.0/180.0*M_PI;
-	constexpr double degMaxRoll = 20; // degrees
+	//constexpr double degMaxRoll = 30; // degrees
 	constexpr double inchMinDistance = 10;
 	
 	//double radReferencePitch = fmod((radPitch + 2*M_PI), M_PI); // make positive
 	//if (radReferencePitch > M_PI_2) radReferencePitch = M_PI - radReferencePitch;
 
 	if (pixError > pixMaxError ||
-	result.distance < inchMinDistance ||
+	result.distance < inchMinDistance// ||
 	//radReferencePitch > radMaxCameraPitch || 
-	fabs(angles[2]) > degMaxRoll) {
-		std::cout << "result rejected" << std::endl;
+	//fabs(angles[2]) > degMaxRoll
+	) {
+		std::cout << "result rejected. error=" << pixError << " max=" << pixMaxError << std::endl;
 		return { false, {}};
 	}
 
