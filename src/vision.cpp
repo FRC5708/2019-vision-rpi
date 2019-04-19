@@ -189,7 +189,12 @@ void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
 		if (oppPoint == 22) oppPoint = 18;
 		cv::line(image, toDraw.points[i], toDraw.points[oppPoint], mainColor, 1);
 	}
-	for (int i = 22; i < (int) (sizeof(VisionDrawPoints) / sizeof(cv::Point2f)); i += 2) {
+	for (int i = 22; i < 26; ++i) {
+		int oppPoint = i + 1;
+		if (oppPoint == 26) oppPoint = 22;
+		cv::line(image, toDraw.points[i], toDraw.points[oppPoint], mainColor, 1);
+	}
+	for (int i = 26; i < (int) (sizeof(VisionDrawPoints) / sizeof(cv::Point2f)); i += 2) {
 		cv::line(image, toDraw.points[i], toDraw.points[i + 1], mainColor, 2);
 	}
 	cv::line(image, toDraw.points[16], toDraw.points[17], rodColor, 2);
@@ -306,7 +311,11 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	std::copy(imagePoints.begin(), imagePoints.end(), draw.points);
 	draw.points[7] = right.bottomleft;
 
-	constexpr float CROSSHAIR_LENGTH = 4;
+	constexpr float CROSSHAIR_LENGTH = 4,
+	 FLOOROUT_LENGTH = 33,
+	 FLOOROUT_WIDTH = 27.5,
+	 FLOOROUT_HEIGHT = 40;
+
 	worldPoints.insert(worldPoints.end(), {
 		cv::Point3f(inchTapeBottomsApart/2, 0, 0),
 
@@ -314,6 +323,10 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		
 		cv::Point3f(CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0), cv::Point3f(-CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0),
 		cv::Point3f(-CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0), cv::Point3f(CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0),
+
+		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0), cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0),
+		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, -FLOOROUT_LENGTH), 
+		cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, -FLOOROUT_LENGTH),
 		
 		cv::Point3f(-CROSSHAIR_LENGTH, 0, 0), cv::Point3f(CROSSHAIR_LENGTH, 0, 0),
 		cv::Point3f(0, -CROSSHAIR_LENGTH, 0), cv::Point3f(0, CROSSHAIR_LENGTH, 0)
