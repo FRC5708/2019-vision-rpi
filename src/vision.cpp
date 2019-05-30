@@ -181,9 +181,9 @@ void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
 	for (int i = 0; i < 8; ++i) {
 		cv::circle(image, toDraw.points[i], 1, rawPointColor, 2);
 	}
-	for (int i = 8; i < 16; ++i) {
+	/*for (int i = 8; i < 16; ++i) {
 		cv::circle(image, toDraw.points[i], 1, rodColor, 2);
-	}
+	}*/
 	for (int i = 18; i < 22; ++i) {
 		int oppPoint = i + 1;
 		if (oppPoint == 22) oppPoint = 18;
@@ -221,6 +221,8 @@ void invertPose(cv::Mat& rotation_vector, cv::Mat& translation_vector, cv::Mat& 
 	cv::Rodrigues(R.t(),cameraRotationVector);
 	cameraTranslationVector = -R.t()*translation_vector;
 }
+
+
 
 ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
  int pixImageWidth, int pixImageHeight) {
@@ -315,7 +317,7 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 	constexpr float CROSSHAIR_LENGTH = 4,
 	 FLOOROUT_LENGTH = 33,
 	 FLOOROUT_WIDTH = 27.5,
-	 FLOOROUT_HEIGHT = 40;
+	 FLOOROUT_HEIGHT = 14;
 
 	worldPoints.insert(worldPoints.end(), {
 		cv::Point3f(inchTapeBottomsApart/2, 0, 0),
@@ -326,8 +328,8 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		cv::Point3f(-CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0), cv::Point3f(CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0),
 
 		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0), cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0),
-		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, -FLOOROUT_LENGTH), 
-		cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, -FLOOROUT_LENGTH),
+		cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, FLOOROUT_LENGTH),
+		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, FLOOROUT_LENGTH), 
 		
 		cv::Point3f(-CROSSHAIR_LENGTH, 0, 0), cv::Point3f(CROSSHAIR_LENGTH, 0, 0),
 		cv::Point3f(0, -CROSSHAIR_LENGTH, 0), cv::Point3f(0, CROSSHAIR_LENGTH, 0)

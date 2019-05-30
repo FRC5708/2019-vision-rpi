@@ -216,6 +216,7 @@ namespace vision5708Main {
 	}
 
 	int main(int argc, char** argv) {
+		
 
 		if (argc >= 3) {
 			readCalibParams(argv[1]);
@@ -278,6 +279,7 @@ namespace vision5708Main {
 
 		return 0;
 	}
+	
 }
 int main(int argc, char** argv) {
 	return vision5708Main::main(argc, argv);
