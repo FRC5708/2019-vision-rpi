@@ -68,6 +68,8 @@
         "vector": "cpp",
         "clocale": "cpp",
         "list": "cpp",
-        "optional": "cpp"
+        "optional": "cpp",
+        "__errc": "cpp",
+        "__node_handle": "cpp"
     }
 }
