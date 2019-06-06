@@ -222,7 +222,108 @@ void invertPose(cv::Mat& rotation_vector, cv::Mat& translation_vector, cv::Mat& 
 	cameraTranslationVector = -R.t()*translation_vector;
 }
 
+struct SolvePnpResult {
+	cv::Mat rvec, tvec;
+	double pixError, inchHeight, inchRobotX, inchRobotY;
+	bool valid;
 
+	SolvePnpResult(cv::Mat rvec, cv::Mat tvec, 
+	std::vector<cv::Point3f> worldPoints, std::vector<cv::Point2f> imagePoints) :
+	rvec(rvec), tvec(tvec) {
+		assert(tvec.type() == CV_64F && rvec.type() == CV_64F);
+
+		cv::Mat rotation, translation;
+		invertPose(rvec, tvec, rotation, translation);
+
+		if (matContainsNan(rvec) || matContainsNan (tvec)) {
+			std::cout << "solvePnP returned NaN!\n";
+			valid = false;
+			return;
+		} 
+
+		pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs);
+
+		cv::Vec3d angles = getEulerAngles(rvec);
+		
+		// x is right postive, y is forwards positive
+		inchRobotX = translation.at<double>(0);
+		inchRobotY = translation.at<double>(2);
+		inchHeight = -translation.at<double>(1);	
+
+		valid = true;	
+	}
+
+	bool withinHeight() {
+		return inchHeight > 3 && inchHeight < 8;
+	}
+
+	SolvePnpResult() {
+		valid = false;
+	}
+};
+SolvePnpResult prevResult;
+
+
+ProcessPointsResult processResult(SolvePnpResult* resultUsing, 
+std::vector<cv::Point3f>& worldPoints, std::vector<cv::Point2f>& imagePoints, cv::Point2f lastImagePoint) {
+
+	auto rsize = resultUsing->rvec.size();
+	auto tsize = resultUsing->tvec.size();
+	if (!(rsize == cv::Size(1, 3) || rsize == cv::Size(3, 1)) && (tsize == cv::Size(1, 3) || tsize == cv::Size(3, 1))) {
+		std::cout << "SolvePnP returned stuff with wrong sizes" << std::endl;
+		return { false, {}};
+	}
+
+	VisionData result;
+	result.distance = sqrt(pow(resultUsing->inchRobotX, 2) + pow(resultUsing->inchRobotY, 2));
+
+	result.tapeAngle = -atan2(resultUsing->inchRobotX, resultUsing->inchRobotY);
+	result.robotAngle = -asin(resultUsing->tvec.at<double>(0) / result.distance);
+
+	if (isNanOrInf(result.distance) || isNanOrInf(result.robotAngle) || isNanOrInf(result.tapeAngle)) {
+		std::cout << "encountered NaN or Infinity" << std::endl;
+		return { false, {} };
+	}
+
+	
+	//double radReferencePitch = fmod((radPitch + 2*M_PI), M_PI); // make positive
+	//if (radReferencePitch > M_PI_2) radReferencePitch = M_PI - radReferencePitch;
+
+	VisionDrawPoints draw;
+	std::copy(imagePoints.begin(), imagePoints.end(), draw.points);
+	draw.points[7] = lastImagePoint;
+
+	constexpr float CROSSHAIR_LENGTH = 4,
+	 FLOOROUT_LENGTH = 33,
+	 FLOOROUT_WIDTH = 27.5,
+	 FLOOROUT_HEIGHT = 14;
+
+	worldPoints.insert(worldPoints.end(), {
+		cv::Point3f(inchTapeBottomsApart/2, 0, 0),
+
+		cv::Point3f(0, 0, CROSSHAIR_LENGTH), cv::Point3f(0, 0, -CROSSHAIR_LENGTH),
+		
+		cv::Point3f(CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0), cv::Point3f(-CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0),
+		cv::Point3f(-CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0), cv::Point3f(CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0),
+
+		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0), cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0),
+		cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, FLOOROUT_LENGTH),
+		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, FLOOROUT_LENGTH), 
+		
+		cv::Point3f(-CROSSHAIR_LENGTH, 0, 0), cv::Point3f(CROSSHAIR_LENGTH, 0, 0),
+		cv::Point3f(0, -CROSSHAIR_LENGTH, 0), cv::Point3f(0, CROSSHAIR_LENGTH, 0)
+	});
+	
+	cv::Mat projPoints;
+	cv::projectPoints(worldPoints, resultUsing->rvec, resultUsing->tvec, calib::cameraMatrix, calib::distCoeffs, projPoints);
+	assert(projPoints.type() == CV_32FC2);
+	std::copy(projPoints.begin<cv::Point2f>(), projPoints.end<cv::Point2f>(), draw.points + 8);
+	
+	if (isImageTesting) showDebugPoints(draw);
+	
+	prevResult = *resultUsing;
+	return { true, result, draw };
+}
 
 ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
  int pixImageWidth, int pixImageHeight) {
@@ -255,94 +356,50 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
 		left.topright, right.topleft, left.bottomright//, right.bottom
 	};
 
-	cv::Mat rvec, tvec, rotation, translation;
-	cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rvec, tvec, false, cv::SOLVEPNP_ITERATIVE);
-	invertPose(rvec, tvec, rotation, translation);
-	
-	assert(tvec.type() == CV_64F && rvec.type() == CV_64F && rotation.type() == CV_64F && translation.type() == CV_64F);
-	
-	if (matContainsNan(translation) || matContainsNan (rotation)) {
-		std::cout << "solvePnP returned NaN!\n";
-		return { false, {}};
-	} 
+	cv::Mat rvec, tvec;
+	bool retval = cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rvec, tvec, false, cv::SOLVEPNP_ITERATIVE);
+	//std::cout << "solvePnP withoutprev retval: " << retval << std::endl;
+	SolvePnpResult resultWithoutPrevious(rvec, tvec, worldPoints, imagePoints);
 
-	double pixError = cv::computeReprojectionErrors(worldPoints, imagePoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs);
+	SolvePnpResult* resultUsing = nullptr;
+	SolvePnpResult resultWithPrevious;
 
-	cv::Vec3d angles = getEulerAngles(rvec);
-	
-	// x is right postive, y is forwards positive
-	double inchRobotX = translation.at<double>(0);
-	double inchRobotY = translation.at<double>(2);
-	double inchCalcTapesAboveCamera = translation.at<double>(1);
+	if (prevResult.valid) {
+		rvec = prevResult.rvec; tvec = prevResult.tvec;
+		try {
+			cv::solvePnP(worldPoints, imagePoints, calib::cameraMatrix, calib::distCoeffs, rvec, tvec, true, cv::SOLVEPNP_ITERATIVE);
+		}
+		catch(const cv::Exception e) {
+			std::cerr << "cv::solvePnP useExtrinsicGuess threw a cv::Exception: " << e.msg << std::endl;
+			resultUsing = &resultWithoutPrevious;
+			return processResult(resultUsing, worldPoints, imagePoints, right.bottomleft);
+		}
 
-	if (verboseMode) {
-		std::cout << "\nerror:" << pixError << " pitch:" << angles[0] << " yaw:" << angles[1] << " roll:" << angles[2] 
-		<< "\ntrans: " << translation << "\ntvec: " << tvec <<
-		"\nx:" << inchRobotX << " y:" << inchRobotY << " height:" << inchCalcTapesAboveCamera << '\n';
+		resultWithPrevious = SolvePnpResult(rvec, tvec, worldPoints, imagePoints);
+
+		std::cout << "without prev: err:" << resultWithoutPrevious.pixError << " height:" << resultWithoutPrevious.inchHeight
+		<< "with prev: err:" << resultWithPrevious.pixError << " height:" << resultWithPrevious.inchHeight << std::endl;
+
+		double pixMaxError = std::max(3, 
+				((left.bottomright.y - left.topleft.y) + (right.bottomleft.y - right.topright.y))/2 / 6);
+
+
+		if (resultWithoutPrevious.pixError > pixMaxError) resultUsing = &resultWithPrevious;
+		if (resultWithPrevious.pixError > pixMaxError) resultUsing = &resultWithoutPrevious;
+		if (resultUsing != nullptr && resultUsing->pixError > pixMaxError) return { false, {}};
+
+		if (resultUsing == nullptr) {
+			if (resultWithoutPrevious.withinHeight() && !resultWithPrevious.withinHeight()) resultUsing = &resultWithoutPrevious;
+			else if (resultWithPrevious.withinHeight() && !resultWithoutPrevious.withinHeight()) resultUsing = &resultWithPrevious;
+			else resultUsing = (resultWithoutPrevious.pixError < resultWithPrevious.pixError) 
+			? &resultWithoutPrevious : &resultWithPrevious;
+		}	 
 	}
+	else resultUsing = &resultWithoutPrevious;
 
-	VisionData result;
-	result.distance = sqrt(pow(inchRobotX, 2) + pow(inchRobotY, 2));
+	if (resultUsing == &resultWithPrevious) std::cout << "Using previous result with useExtrinsicGuess" << std::endl;
 
-	result.tapeAngle = -atan2(inchRobotX, inchRobotY);
-	result.robotAngle = -asin(tvec.at<double>(0) / result.distance);
-
-	if (isNanOrInf(result.distance) || isNanOrInf(result.robotAngle) || isNanOrInf(result.tapeAngle)) {
-		std::cout << "encountered NaN or Infinity" << std::endl;
-		return { false, {} };
-	}
-
-	double pixMaxError = std::max(3, 
-		((left.bottomright.y - left.topleft.y) + (right.bottomleft.y - right.topright.y))/2 / 6);
-	//constexpr double radMaxCameraPitch = 40.0/180.0*M_PI;
-	//constexpr double degMaxRoll = 30; // degrees
-	constexpr double inchMinDistance = 10;
-	
-	//double radReferencePitch = fmod((radPitch + 2*M_PI), M_PI); // make positive
-	//if (radReferencePitch > M_PI_2) radReferencePitch = M_PI - radReferencePitch;
-
-	if (pixError > pixMaxError ||
-	result.distance < inchMinDistance// ||
-	//radReferencePitch > radMaxCameraPitch || 
-	//fabs(angles[2]) > degMaxRoll
-	) {
-		std::cout << "result rejected. error=" << pixError << " max=" << pixMaxError << std::endl;
-		return { false, {}};
-	}
-
-	VisionDrawPoints draw;
-	std::copy(imagePoints.begin(), imagePoints.end(), draw.points);
-	draw.points[7] = right.bottomleft;
-
-	constexpr float CROSSHAIR_LENGTH = 4,
-	 FLOOROUT_LENGTH = 33,
-	 FLOOROUT_WIDTH = 27.5,
-	 FLOOROUT_HEIGHT = 14;
-
-	worldPoints.insert(worldPoints.end(), {
-		cv::Point3f(inchTapeBottomsApart/2, 0, 0),
-
-		cv::Point3f(0, 0, CROSSHAIR_LENGTH), cv::Point3f(0, 0, -CROSSHAIR_LENGTH),
-		
-		cv::Point3f(CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0), cv::Point3f(-CROSSHAIR_LENGTH, CROSSHAIR_LENGTH, 0),
-		cv::Point3f(-CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0), cv::Point3f(CROSSHAIR_LENGTH, -CROSSHAIR_LENGTH, 0),
-
-		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0), cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, 0),
-		cv::Point3f(FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, FLOOROUT_LENGTH),
-		cv::Point3f(-FLOOROUT_WIDTH/2, -FLOOROUT_HEIGHT, FLOOROUT_LENGTH), 
-		
-		cv::Point3f(-CROSSHAIR_LENGTH, 0, 0), cv::Point3f(CROSSHAIR_LENGTH, 0, 0),
-		cv::Point3f(0, -CROSSHAIR_LENGTH, 0), cv::Point3f(0, CROSSHAIR_LENGTH, 0)
-	});
-	
-	cv::Mat projPoints;
-	cv::projectPoints(worldPoints, rvec, tvec, calib::cameraMatrix, calib::distCoeffs, projPoints);
-	assert(projPoints.type() == CV_32FC2);
-	std::copy(projPoints.begin<cv::Point2f>(), projPoints.end<cv::Point2f>(), draw.points + 8);
-	
-	if (isImageTesting) showDebugPoints(draw);
-	
-	return { true, result, draw };
+	return processResult(resultUsing, worldPoints, imagePoints, right.bottomleft);
 }
 
 std::vector<VisionTarget> processContours(
@@ -386,20 +443,19 @@ std::vector<cv::Rect> rects;
 			    abs(left.width - right.width) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.height - right.height) < rectSizeDifferenceTolerance * (left.width + right.width) / 2 &&
 				abs(left.br().y - right.br().y) < rectYDifferenceTolerance * (left.height + right.height) / 2) {
-				try {
 				// keep around old output for debugging
 				//if (verboseMode) processRects(left, right, imgWidth, imgHeight);
+				try {
+					ProcessPointsResult result = processPoints(
+						contourCorners[i], contourCorners[j], imgWidth, imgHeight);
 
-				ProcessPointsResult result = processPoints(
-					contourCorners[i], contourCorners[j], imgWidth, imgHeight);
-
-				if (result.success) {
-					results.push_back({ result.calcs, result.drawPoints, left, right });
-				}
+					if (result.success) {
+						results.push_back({ result.calcs, result.drawPoints, left, right });
+					}
 				}
 				catch (const cv::Exception e) {
 					if (isImageTesting) throw;
-					std::cerr << e.msg << std::endl;
+					std::cerr << "ProcessPoints threw a cv::Exception: " << e.msg << std::endl;
 				}
 			}
 		}
