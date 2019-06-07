@@ -228,9 +228,9 @@ void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image) {
 	for (int i = 0; i < 8; ++i) {
 		cv::circle(image, toDraw.points[i], 1, rawPointColor, 2);
 	}
-	/*for (int i = 8; i < 16; ++i) {
+	for (int i = 8; i < 16; ++i) {
 		cv::circle(image, toDraw.points[i], 1, rodColor, 2);
-	}*/
+	}
 	for (int i = 18; i < 22; ++i) {
 		int oppPoint = i + 1;
 		if (oppPoint == 22) oppPoint = 18;
