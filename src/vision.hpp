@@ -28,6 +28,8 @@ struct VisionDrawPoints {
 	
 	cv::Point2f points[30];
 };
+
+// Draw an overlay representing the vision targets
 void drawVisionPoints(VisionDrawPoints& toDraw, cv::Mat& image);
 
 struct VisionTarget {
@@ -36,6 +38,7 @@ struct VisionTarget {
 	cv::Rect left, right;
 };
 
+// The main vision processing function, which processes a single frame.
 std::vector<VisionTarget> doVision(cv::Mat image);
 
 extern bool isImageTesting;

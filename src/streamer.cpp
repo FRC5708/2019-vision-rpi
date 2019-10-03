@@ -45,6 +45,7 @@ pid_t runCommandAsync(const std::string& cmd, int closeFd) {
 	else return pid;
 }
 
+// Called when SIGCHLD is recieved
 void Streamer::handleCrash(pid_t pid) {
 	if (!handlingLaunchRequest) {
 		for (auto i : gstInstances) {
@@ -58,6 +59,7 @@ void Streamer::handleCrash(pid_t pid) {
 void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string port, string file) {
 	cout << "launching GStreamer, targeting " << recieveAddress << endl;
 	
+	// Codec is specific to the raspberry pi's gpu
 	string codec = "omxh264enc";
 	string gstreamCommand = "gst-launch-1.0";
 
@@ -75,6 +77,7 @@ void Streamer::launchGStreamer(const char* recieveAddress, int bitrate, string p
 	gstInstances.push_back({ pid, file, strCommand });
 }
 
+// Unused
 void Streamer::launchFFmpeg() {
 	ffmpegPID = runCommandAsync(
 		"ffmpeg -f v4l2 -pix_fmt yuyv422 -video_size  800x448 -i /dev/video0 -f v4l2 /dev/video1 -f v4l2 /dev/video2"
@@ -82,6 +85,7 @@ void Streamer::launchFFmpeg() {
 }
 
 
+// Finds a video device whose name contains cmp
 string getVideoDeviceWithString(string cmp) {
 
 	FILE* videos = popen(("for I in /sys/class/video4linux/*; do if grep -q '" 
@@ -102,9 +106,10 @@ string getVideoDeviceWithString(string cmp) {
 
 void Streamer::start() {
 	
-
+	// These are the model numbers of our cameras
 	visionCameraDev = getVideoDeviceWithString("920");
 	secondCameraDev = getVideoDeviceWithString("C525");
+	
 	loopbackDev = getVideoDeviceWithString("Dummy");
 
 	if (secondCameraDev.empty()) {
@@ -139,6 +144,7 @@ void Streamer::start() {
 	camera.openReader(width, height, visionCameraDev.c_str());
 	videoWriter.openWriter(width, height, loopbackDev.c_str());
 
+	// Start the thread that listens for the signal from the driver station
 	std::thread([this]() {
 		
 		servFd = socket(AF_INET6, SOCK_STREAM, 0);
@@ -177,6 +183,9 @@ void Streamer::start() {
 				continue;
 			}
 
+			// At this point, a connection has been recieved from the driver station.
+			// gStreamer will now be set up to stream to the driver station.
+
 			handlingLaunchRequest = true;
 
 			for (auto i : gstInstances) {
@@ -210,6 +219,8 @@ void Streamer::start() {
 			launchGStreamer(strAddr, atoi(bitrate), "5809", loopbackDev);
 			if (!secondCameraDev.empty()) launchGStreamer(strAddr, atoi(bitrate), "5804", secondCameraDev);
 
+			// It was planned to draw an overlay over the video feed in the driver station.
+			// This sends the overlay data.
 			cout << "Starting UDP stream..." << endl;
 			if (computer_udp) delete computer_udp;
 			computer_udp = new DataComm(strAddr, "5806");
@@ -225,8 +236,8 @@ void Streamer::setDrawTargets(std::vector<VisionTarget>* drawTargets) {
 	//if (computer_udp) computer_udp->sendDraw(&(*drawTargets)[0].drawPoints);
 }
 
+// get frame in the color space that the vision processing uses
 cv::Mat Streamer::getBGRFrame() {
-	// get frame for vision processing
 	cv::Mat frame;
 	cvtColor(camera.getMat(), frame, cv::COLOR_YUV2BGR_YUYV);
 	return frame;
@@ -254,14 +265,13 @@ void Streamer::run(std::function<void(void)> frameNotifier) {
 		//std::cout << "grabFrame took: " << std::chrono::duration_cast<std::chrono::milliseconds>
 		//	(writeStart - startTime).count() << " ms" << endl;
 
-		cv::Mat drawnOn = camera.getMat().clone();
 
-		
+		// Draw an overlay on the frame before handing it off to gStreamer
+		cv::Mat drawnOn = camera.getMat().clone();
 		for (auto i = drawTargets.begin(); i < drawTargets.end(); ++i) {
 			drawVisionPoints(i->drawPoints, drawnOn);
 		}
 	
-
 		videoWriter.writeFrame(drawnOn);
 
 		//std::cout << "drawing and writing took: " << std::chrono::duration_cast<std::chrono::milliseconds>

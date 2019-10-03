@@ -45,7 +45,7 @@ namespace vision5708Main {
 	Streamer streamer;
 	
 	// recieves enable/disable signals from the RIO to conserve thermal capacity
-	// Also set exposure in the future?
+	// Also sets exposure when actively driving to target
 	void ControlSocket() {
 		struct addrinfo hints;
 		memset(&hints, 0, sizeof(hints));
@@ -111,6 +111,7 @@ namespace vision5708Main {
 
 		
 		while (true) {
+			// currentFrameTime serves as a unique marker for this frame
 			auto lastFrameTime = currentFrameTime;
 			lastResults = doVision(streamer.getBGRFrame());
 
@@ -124,7 +125,8 @@ namespace vision5708Main {
 			
 			rioComm.sendData(calcs, lastFrameTime);
 			
-			if (lastFrameTime == currentFrameTime) { // no new frame yet
+			// If no new frame has come from the camera, wait.
+			if (lastFrameTime == currentFrameTime) {
 				std::unique_lock<std::mutex> uniqueWaitMutex(waitMutex);
 				condition.wait(uniqueWaitMutex);
 			}
@@ -217,7 +219,7 @@ namespace vision5708Main {
 
 	int main(int argc, char** argv) {
 		
-
+		
 		if (argc >= 3) {
 			readCalibParams(argv[1]);
 			doImageTesting(argv[2]);
@@ -237,17 +239,20 @@ namespace vision5708Main {
 			}
 		}
 		else {
-			cerr << "invalid number of arguments" << endl;
+			cerr << "usage: " << argv[0] << "[test image][calibration parameters]" << endl;
 			return 1;
 		}
         
         system("/home/pi/bin/run_setup_v4l2loopback");
-		//verboseMode = true;
+		verboseMode = true;
 
+		
+		// SIGPIPE is sent to the program whenever a connection terminates. We want the program to stay alive if a connection unexpectedly terminates.
 		signal(SIGPIPE, SIG_IGN);
 
 		streamer.start();
 
+		// SIGCHLD is recieved if gStreamer unexpectedly terminates.
 		struct sigaction sa;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_flags = SA_RESTART | SA_NOCLDSTOP | SA_SIGINFO;
@@ -257,18 +262,20 @@ namespace vision5708Main {
 			exit(1);
 		}
 		
-		
+		// Scale the calibration parameters to match the current resolution
 		changeCalibResolution(streamer.width, streamer.height);
 
 		std::thread visThread(&VisionThread);
 		std::thread controlSockThread(&ControlSocket);
 
 		// never returns
-
 		streamer.run([]() {
-
+			
+			// This lambda is called every frame.
+			// It wakes up the vision processing thread if it is waiting on a new frame.
+			// if vision processing is disabled, it wakes up the thread only once every 2 seconds.
+			
 			auto time = clock.now();
-			// if vision is disabled, process one frame every 2 seconds
 			if (visionEnabled || (time - currentFrameTime) > std::chrono::seconds(2)) {
 
 				currentFrameTime = time;

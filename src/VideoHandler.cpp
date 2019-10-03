@@ -7,6 +7,16 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
+/*
+Magic and jankyness lies here. This class communicates to the cameras and to gStreamer with the Video4Linux API.
+ The API is poorly documented. You'll notice various links to some blogposts
+ which were helpful but did a few things that were broken in one way or another. This class was 
+ created with trial, error, and pain.
+ Different drivers implement the API in subtly different ways, so cameras that we 
+ haven't tested (especially non-usb cameras) might not work.
+*/
+
+
 void VideoReader::openReader(int width, int height, const char* file) {
     this->width = width; this->height = height;
 
