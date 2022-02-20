@@ -50,6 +50,12 @@ void DataComm::setupSocket() {
         if (fd == -1) continue;
         
         if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
+            char ipBuffer[INET_ADDRSTRLEN] = {0};
+            if(inet_ntop(domain, &from_address, ipBuffer, INET_ADDRSTRLEN) == nullptr){
+                std::cout << "inet_pton failed: " << errno << std::endl;
+                return {};
+            }
+            std::cout << "ip: " << ipBuffer << std::endl;
             break;
         }
         else {
