@@ -234,7 +234,7 @@ namespace vision5708Main {
 			else readCalibParams(argv[1]);
 		}
 		else if (argc == 1) {
-			if (!readCalibParams("/home/pi/vision-code/calib_data/logitech_c920.xml", false)) {
+			if (!readCalibParams("/home/pi/Documents/2019-vision-rpi/calib_data/logitech_c920.xml", false)) {
 				setDefaultCalibParams();
 			}
 		}
