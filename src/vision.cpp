@@ -376,11 +376,12 @@ ProcessPointsResult processPoints(ContourCorners left, ContourCorners right,
  int pixImageWidth, int pixImageHeight) {
 	
 	if (verboseMode) {
-		std::cout << "left: ";
+		/*std::cout << "left: ";
 		printContourCorners(left);
 		std::cout << "\nright: ";
 		printContourCorners(right);
 		std::cout << std::endl;
+		*/
 	}
 
 	// There might be a bug in openCV that would require the focal length to be multiplied by 2.
@@ -473,7 +474,7 @@ std::vector<cv::Rect> rects;
 	const float rectDistanceTolerance = 10; // multiplier of the width of one rectangle, that the whole vision target can be
 
 	if (verboseMode) for (auto rect : rects) {
-		std::cout << "found rect: x:" << rect.x << ",y:" << rect.y << ",w:" << rect.width << ",h:" << rect.height << std::endl;
+		//std::cout << "found rect: x:" << rect.x << ",y:" << rect.y << ",w:" << rect.width << ",h:" << rect.height << std::endl;
 	}
 
 	std::vector<VisionTarget> results;
