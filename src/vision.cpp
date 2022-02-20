@@ -146,9 +146,9 @@ ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
 	}
 	if(verboseMode){
 	end = std::chrono::steady_clock::now();
-	std::cout << "DEBUG: ApproxPolyDP initial solve time difference (ms): " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() <<std::endl;
+	//std::cout << "DEBUG: ApproxPolyDP initial solve time difference (ms): " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() <<std::endl;
 	begin=end;
-	std::cout << "DEBUG: Initial fittingError: " << fittingError << std::endl;
+	//std::cout << "DEBUG: Initial fittingError: " << fittingError << std::endl;
 	}
 	for(int i=0;i<REFINE_FAIL_COUNT;){
 		//Attempts to refine the solution, to obtain the lowest fitting error that produces a quadrilateral.
@@ -163,18 +163,18 @@ ContourCorners getContourCorners(std::vector<cv::Point>& contour) {
 	}
 	if(verboseMode){
 	end = std::chrono::steady_clock::now();
-	std::cout << "DEBUG: ApproxPolyDP refinement solve time difference (ms): " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() <<std::endl;
-	std::cout << "DEBUG: Final fittingError: " << fittingError << std::endl;
+	//std::cout << "DEBUG: ApproxPolyDP refinement solve time difference (ms): " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() <<std::endl;
+	//std::cout << "DEBUG: Final fittingError: " << fittingError << std::endl;
 	}
 
 	approxPolyDP(contour,approx,arcLength*fittingError,true); //One last run, so that we have our best result.
 	
 	if (verboseMode) {
-		std::cout << "points:";
+		//std::cout << "points:";
 		for (auto i : approx) {
-			std::cout << " [" << i.x << "," << i.y << "]";
+			//std::cout << " [" << i.x << "," << i.y << "]";
 		}
-		std::cout << std::endl;
+		//std::cout << std::endl;
 	}
 
 	for(auto i: approx) {
